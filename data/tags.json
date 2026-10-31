@@ -1,0 +1,22 @@
+[
+  {
+    "id": 0,
+    "name": "Đại lý",
+    "color": "#a4e87d"
+  },
+  {
+    "id": 1,
+    "name": "Khách sỉ",
+    "color": "#e8cb7d"
+  },
+  {
+    "id": 2,
+    "name": "PT",
+    "color": "#7dbde8"
+  },
+  {
+    "id": 3,
+    "name": "Khách lẻ VIP",
+    "color": "#e88b7d"
+  }
+]

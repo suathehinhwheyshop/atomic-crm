@@ -1,0 +1,18 @@
+[
+  {
+    "id": 0,
+    "deal_id": 1,
+    "text": "Khách yêu cầu chính sách đổi trả rõ ràng.",
+    "date": "2026-10-26T00:00:00.000Z",
+    "sales_id": 2,
+    "attachments": []
+  },
+  {
+    "id": 1,
+    "deal_id": 0,
+    "text": "Chờ khách xác nhận số lượng.",
+    "date": "2026-10-24T00:00:00.000Z",
+    "sales_id": 1,
+    "attachments": []
+  }
+]

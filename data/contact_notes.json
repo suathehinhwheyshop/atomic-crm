@@ -1,0 +1,65 @@
+[
+  {
+    "id": 0,
+    "contact_id": 0,
+    "text": "Đã gửi bảng giá whey và BCAA qua Zalo.",
+    "date": "2026-10-20T00:00:00.000Z",
+    "sales_id": 1,
+    "status": "warm",
+    "attachments": []
+  },
+  {
+    "id": 1,
+    "contact_id": 1,
+    "text": "Thống nhất điều kiện đại lý, chờ ký hợp đồng.",
+    "date": "2026-10-25T00:00:00.000Z",
+    "sales_id": 2,
+    "status": "hot",
+    "attachments": []
+  },
+  {
+    "id": 2,
+    "contact_id": 2,
+    "text": "Đã giao đơn tháng 10.",
+    "date": "2026-10-15T00:00:00.000Z",
+    "sales_id": 0,
+    "status": "in-contract",
+    "attachments": []
+  },
+  {
+    "id": 3,
+    "contact_id": 3,
+    "text": "Gọi giới thiệu combo cho studio.",
+    "date": "2026-10-22T00:00:00.000Z",
+    "sales_id": 1,
+    "status": "warm",
+    "attachments": []
+  },
+  {
+    "id": 4,
+    "contact_id": 4,
+    "text": "Lần đầu liên hệ, chưa phản hồi báo giá.",
+    "date": "2026-10-18T00:00:00.000Z",
+    "sales_id": 0,
+    "status": "cold",
+    "attachments": []
+  },
+  {
+    "id": 5,
+    "contact_id": 5,
+    "text": "Hẹn gặp trực tiếp tuần sau.",
+    "date": "2026-10-27T00:00:00.000Z",
+    "sales_id": 2,
+    "status": "warm",
+    "attachments": []
+  },
+  {
+    "id": 6,
+    "contact_id": 6,
+    "text": "Mua thêm 1 hộp whey, hài lòng.",
+    "date": "2026-10-26T00:00:00.000Z",
+    "sales_id": 1,
+    "status": "hot",
+    "attachments": []
+  }
+]

@@ -1,0 +1,181 @@
+[
+  {
+    "id": 0,
+    "first_name": "Minh",
+    "last_name": "Nguyễn",
+    "title": "Chủ phòng gym",
+    "company_id": 0,
+    "sales_id": 1,
+    "tags": [1],
+    "gender": "male",
+    "background": "Liên hệ qua Zalo, ưu tiên giao trong ngày.",
+    "has_newsletter": false,
+    "first_seen": "2026-09-05T00:00:00.000Z",
+    "last_seen": "2026-10-28T00:00:00.000Z",
+    "email_jsonb": [
+      {
+        "email": "minh@example.com",
+        "type": "Work"
+      }
+    ],
+    "phone_jsonb": [
+      {
+        "number": "0910 000 001",
+        "type": "Work"
+      }
+    ],
+    "linkedin_url": null
+  },
+  {
+    "id": 1,
+    "first_name": "Lan",
+    "last_name": "Trần",
+    "title": "Quản lý",
+    "company_id": 1,
+    "sales_id": 2,
+    "tags": [0],
+    "gender": "female",
+    "background": "Đang đề xuất làm đại lý khu vực.",
+    "has_newsletter": false,
+    "first_seen": "2026-09-05T00:00:00.000Z",
+    "last_seen": "2026-10-28T00:00:00.000Z",
+    "email_jsonb": [
+      {
+        "email": "lan@example.com",
+        "type": "Work"
+      }
+    ],
+    "phone_jsonb": [
+      {
+        "number": "0910 000 002",
+        "type": "Work"
+      }
+    ],
+    "linkedin_url": null
+  },
+  {
+    "id": 2,
+    "first_name": "Hùng",
+    "last_name": "Lê",
+    "title": "Chủ cửa hàng",
+    "company_id": 2,
+    "sales_id": 0,
+    "tags": [0, 1],
+    "gender": "male",
+    "background": "Khách cũ, nhập định kỳ.",
+    "has_newsletter": false,
+    "first_seen": "2026-09-05T00:00:00.000Z",
+    "last_seen": "2026-10-28T00:00:00.000Z",
+    "email_jsonb": [],
+    "phone_jsonb": [
+      {
+        "number": "0910 000 003",
+        "type": "Work"
+      }
+    ],
+    "linkedin_url": null
+  },
+  {
+    "id": 3,
+    "first_name": "Tuấn",
+    "last_name": "Phạm",
+    "title": "PT trưởng",
+    "company_id": 3,
+    "sales_id": 1,
+    "tags": [2],
+    "gender": "male",
+    "background": "Giới thiệu sản phẩm cho học viên.",
+    "has_newsletter": false,
+    "first_seen": "2026-09-05T00:00:00.000Z",
+    "last_seen": "2026-10-28T00:00:00.000Z",
+    "email_jsonb": [
+      {
+        "email": "tuan@example.com",
+        "type": "Work"
+      }
+    ],
+    "phone_jsonb": [
+      {
+        "number": "0910 000 004",
+        "type": "Work"
+      }
+    ],
+    "linkedin_url": null
+  },
+  {
+    "id": 4,
+    "first_name": "Hà",
+    "last_name": "Võ",
+    "title": "Chủ shop",
+    "company_id": 4,
+    "sales_id": 0,
+    "tags": [1],
+    "gender": "female",
+    "background": "Cần ảnh sản phẩm và giá sỉ theo số lượng.",
+    "has_newsletter": false,
+    "first_seen": "2026-09-05T00:00:00.000Z",
+    "last_seen": "2026-10-28T00:00:00.000Z",
+    "email_jsonb": [
+      {
+        "email": "ha@example.com",
+        "type": "Work"
+      }
+    ],
+    "phone_jsonb": [
+      {
+        "number": "0910 000 005",
+        "type": "Work"
+      }
+    ],
+    "linkedin_url": null
+  },
+  {
+    "id": 5,
+    "first_name": "Nam",
+    "last_name": "Đỗ",
+    "title": "Chủ nhiệm CLB",
+    "company_id": 5,
+    "sales_id": 2,
+    "tags": [1],
+    "gender": "male",
+    "background": "Hỏi về mass gainer cho hội viên mới.",
+    "has_newsletter": false,
+    "first_seen": "2026-09-05T00:00:00.000Z",
+    "last_seen": "2026-10-28T00:00:00.000Z",
+    "email_jsonb": [],
+    "phone_jsonb": [
+      {
+        "number": "0910 000 006",
+        "type": "Work"
+      }
+    ],
+    "linkedin_url": null
+  },
+  {
+    "id": 6,
+    "first_name": "Quân",
+    "last_name": "Bùi",
+    "title": "Khách lẻ",
+    "company_id": null,
+    "sales_id": 1,
+    "tags": [3],
+    "gender": "male",
+    "background": "Khách lẻ mua thường xuyên.",
+    "has_newsletter": false,
+    "first_seen": "2026-09-05T00:00:00.000Z",
+    "last_seen": "2026-10-28T00:00:00.000Z",
+    "email_jsonb": [
+      {
+        "email": "quan@example.com",
+        "type": "Work"
+      }
+    ],
+    "phone_jsonb": [
+      {
+        "number": "0910 000 007",
+        "type": "Work"
+      }
+    ],
+    "linkedin_url": null
+  }
+]

@@ -11,6 +11,7 @@
     "esModuleInterop": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "verbatimModuleSyntax": false,
     "moduleDetection": "force",
     "noEmit": true,
@@ -32,5 +33,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "demo", "vitest-browser.d.ts"]
+  "include": ["src", "demo", "prototype", "vitest-browser.d.ts"]
 }

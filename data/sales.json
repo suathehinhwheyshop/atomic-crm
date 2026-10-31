@@ -1,0 +1,32 @@
+[
+  {
+    "id": 0,
+    "user_id": "0",
+    "first_name": "Admin",
+    "last_name": "WheyShop",
+    "email": "janedoe@atomic.dev",
+    "password": "demo",
+    "administrator": true,
+    "disabled": false
+  },
+  {
+    "id": 1,
+    "user_id": "1",
+    "first_name": "Sale",
+    "last_name": "Miền Nam",
+    "email": "sale.mn@example.com",
+    "password": "demo",
+    "administrator": false,
+    "disabled": false
+  },
+  {
+    "id": 2,
+    "user_id": "2",
+    "first_name": "Sale",
+    "last_name": "Miền Bắc",
+    "email": "sale.mb@example.com",
+    "password": "demo",
+    "administrator": false,
+    "disabled": false
+  }
+]
