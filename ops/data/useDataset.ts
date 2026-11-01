@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { applyCatalog } from "../model/catalog";
 import { mergeDatasets, parseWorkbook } from "../model/parseWorkbook";
 import type { BranchCode, Dataset, WorkbookSource } from "../model/types";
 import { DEMO_TODAY, demoWorkbooks } from "./demoWorkbooks";
@@ -33,7 +34,7 @@ const loadData = async (): Promise<LoadedData> => {
   if (response?.ok && isJson) {
     const sources = (await response.json()) as WorkbookSource[];
     return {
-      dataset: mergeDatasets(sources.map(parseWorkbook)),
+      dataset: applyCatalog(mergeDatasets(sources.map(parseWorkbook))),
       mode: "live",
       connectedBranches: [...new Set(sources.map((s) => s.branch))],
       today: todayIso(),
@@ -49,7 +50,7 @@ const loadData = async (): Promise<LoadedData> => {
   }
   const sources = demoWorkbooks();
   return {
-    dataset: mergeDatasets(sources.map(parseWorkbook)),
+    dataset: applyCatalog(mergeDatasets(sources.map(parseWorkbook))),
     mode: "demo",
     connectedBranches: ["HN"],
     today: DEMO_TODAY,

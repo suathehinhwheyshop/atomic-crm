@@ -1,3 +1,6 @@
+import type { Product } from "./catalog";
+import type { SupplierEntry } from "./supplierLedger";
+
 export type BranchCode = "HN" | "HCM" | "VINH" | "DN";
 /** HCT = company goods, HXT = hand-carried goods, GOP = one merged file (Vinh, Da Nang). */
 export type GoodsLine = "HCT" | "HXT" | "GOP";
@@ -9,6 +12,10 @@ export type OrderItem = {
   quantity: number;
   unitPrice: number;
   discount: number;
+  /** Set by the product catalog when the typed name is recognised. */
+  productCode?: string;
+  canonicalName?: string;
+  costPrice?: number;
 };
 
 export type Order = {
@@ -102,31 +109,18 @@ export type FundSummary = {
   closingDate: string;
 };
 
-/** Row of the "Tồn kho" tab (proposed format, not in the current files). */
+/** Row of the "Tồn kho" tab (proposed): Ngày | Mã SP | Sản phẩm | Tồn | Tồn tối thiểu. */
 export type InventoryItem = {
   key: string;
   branch: BranchCode;
   line: GoodsLine;
+  productCode: string;
   product: string;
   quantity: number;
   unit: string;
   costPrice: number;
   minimum: number;
   updatedAt: string;
-};
-
-/** Row of the "Công nợ NCC" tab (proposed format, not in the current files). */
-export type SupplierDebt = {
-  key: string;
-  branch: BranchCode;
-  line: GoodsLine;
-  supplier: string;
-  opening: number;
-  purchased: number;
-  paid: number;
-  balance: number;
-  dueDate: string;
-  note: string;
 };
 
 export type Dataset = {
@@ -137,7 +131,8 @@ export type Dataset = {
   cashbook: CashbookRow[];
   fundSummaries: FundSummary[];
   inventory: InventoryItem[];
-  supplierDebts: SupplierDebt[];
+  supplierLedger: SupplierEntry[];
+  catalog: Product[];
 };
 
 /** Raw values of one spreadsheet, keyed by tab title (as returned by the Sheets API). */

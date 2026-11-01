@@ -147,6 +147,7 @@ export const InventoryPage = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Chi nhánh</TableHead>
+                <TableHead>Mã SP</TableHead>
                 <TableHead>Sản phẩm</TableHead>
                 <TableHead className="text-right">Tồn</TableHead>
                 <TableHead className="text-right">Tối thiểu</TableHead>
@@ -163,6 +164,11 @@ export const InventoryPage = () => {
                   <TableRow key={i.key}>
                     <TableCell className="whitespace-nowrap">
                       {unit ? unitLabel(unit) : i.branch}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {i.productCode || (
+                        <span className="text-amber-600">chưa mã</span>
+                      )}
                     </TableCell>
                     <TableCell>{i.product}</TableCell>
                     <TableCell className="text-right font-medium">

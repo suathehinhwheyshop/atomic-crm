@@ -9,12 +9,20 @@ import {
   summarizeChannels,
 } from "./metrics";
 import { mergeDatasets, parseWorkbook } from "./parseWorkbook";
+import {
+  applyCatalog,
+  createMatcher,
+  parseCatalog,
+  unmatchedNames,
+} from "./catalog";
 import { periodOf } from "./period";
+import { supplierBalances } from "./supplierLedger";
 import {
   branchUnits,
   financialStatement,
   fundLatestByUnit,
   fundSeries,
+  costOfGoods,
   matrixTotal,
   revenueMatrix,
 } from "./reports";
@@ -516,55 +524,244 @@ describe("Sổ quỹ, Tồn kho and Công nợ tabs", () => {
     ]);
   });
 
-  it("reads the proposed inventory and supplier debt tabs", () => {
-    const { inventory, supplierDebts } = parseWorkbook(
+  it("reads the proposed inventory tab and the supplier ledger", () => {
+    const { inventory, supplierLedger } = parseWorkbook(
       source({
         "Tồn kho": [
           ["TỒN KHO"],
           [],
-          ["Ngày", "Sản phẩm", "Tồn", "Đơn vị", "Giá vốn", "Tồn tối thiểu"],
-          ["31/10/2026", "Whey", "12", "hộp", "1.650.000", "5"],
+          ["Ngày", "Mã SP", "Sản phẩm", "Tồn", "Tồn tối thiểu"],
+          ["31/10/2026", "WHEY-ISO-2", "Whey", "12", "5"],
         ],
         "Công nợ NCC": [
           ["CÔNG NỢ"],
           [
             "Ngày",
             "Nhà cung cấp",
-            "Nợ đầu kỳ",
-            "Nhập trong kỳ",
-            "Đã trả",
-            "Còn nợ",
+            "Loại",
+            "Số phiếu",
+            "Diễn giải",
+            "Số tiền",
             "Hạn thanh toán",
             "Ghi chú",
           ],
           [
-            "31/10/2026",
+            "01/09/2026",
             "NCC A",
+            "Nợ đầu kỳ",
+            "",
+            "",
             "10.000.000",
+            "15/09/2026",
+            "",
+          ],
+          [
+            "05/10/2026",
+            "NCC A",
+            "Nhập hàng",
+            "PN1",
+            "Nhập tháng 10",
             "5.000.000",
+            "04/11/2026",
+            "",
+          ],
+          [
+            "20/10/2026",
+            "NCC A",
+            "Trả tiền",
+            "CP-9",
+            "CK",
             "8.000.000",
             "",
-            "15/11/2026",
-            "x",
+            "",
           ],
+          ["20/10/2026", "NCC A", "Sai loại", "", "", "1.000", "", ""],
         ],
       }),
     );
 
     expect(inventory[0]).toMatchObject({
+      productCode: "WHEY-ISO-2",
       product: "Whey",
       quantity: 12,
-      costPrice: 1_650_000,
       minimum: 5,
       updatedAt: "2026-10-31",
     });
-    expect(supplierDebts[0]).toMatchObject({
+    expect(supplierLedger.map((e) => [e.kind, e.amount])).toEqual([
+      ["opening", 10_000_000],
+      ["purchase", 5_000_000],
+      ["payment", 8_000_000],
+    ]);
+  });
+});
+
+describe("supplier balances", () => {
+  it("allocates payments to the oldest debt and ages the rest by due date", () => {
+    const entry = (
+      date: string,
+      kind: "opening" | "purchase" | "payment",
+      amount: number,
+      dueDate = "",
+    ) => ({
+      key: `${date}-${kind}`,
+      branch: "HN" as const,
+      line: "HCT" as const,
+      date,
       supplier: "NCC A",
+      kind,
+      ref: "",
+      description: "",
+      amount,
+      dueDate,
+      note: "",
+    });
+
+    const [balance] = supplierBalances(
+      [
+        entry("2026-09-01", "opening", 10_000_000, "2026-09-15"),
+        entry("2026-10-05", "purchase", 5_000_000, "2026-10-20"),
+        entry("2026-10-06", "purchase", 4_000_000, "2026-11-30"),
+        entry("2026-10-20", "payment", 12_000_000),
+      ],
+      "2026-10-31",
+    );
+
+    expect(balance).toMatchObject({
       balance: 7_000_000,
-      dueDate: "2026-11-15",
+      paid: 12_000_000,
+      overdue30: 3_000_000,
+      overdue90: 0,
+      notDue: 4_000_000,
+      nextDue: "2026-10-20",
     });
   });
 });
+
+describe("product catalog", () => {
+  const catalog = parseCatalog([
+    ["DANH MỤC"],
+    [
+      "Ngày",
+      "Mã SP",
+      "Tên chuẩn",
+      "Thương hiệu",
+      "Nhóm",
+      "Quy cách",
+      "Đơn vị",
+      "Giá vốn",
+      "Tên khác",
+    ],
+    [
+      "01/09/2026",
+      "WHEY-ISO-2",
+      "Whey Isolate 2kg",
+      "BioX",
+      "Whey",
+      "2kg",
+      "hộp",
+      "1.650.000",
+      "WHEY ISO 2KG; whey isolate 4lbs",
+    ],
+    [
+      "01/09/2026",
+      "SHAKER",
+      "Bình lắc",
+      "",
+      "Phụ kiện",
+      "",
+      "cái",
+      "30.000",
+      "bình",
+    ],
+  ]);
+  const match = createMatcher(catalog);
+
+  it("matches exact names, aliases and names that contain an alias", () => {
+    expect(match("whey isolate 2kg")?.code).toBe("WHEY-ISO-2");
+    expect(match("WHEY ISO 2KG")?.code).toBe("WHEY-ISO-2");
+    expect(match("BioX Whey Isolate 4Lbs (1.8 kg) SÔ CÔ LA")?.code).toBe(
+      "WHEY-ISO-2",
+    );
+    expect(match("Bình Lắc Shaker Ostrovit 600ml")?.code).toBe("SHAKER");
+  });
+
+  it("does not let a short alias match unrelated names", () => {
+    expect(match("Yến mạch bình dân 4.5kg")).toBeNull();
+    expect(match("Creatine 300g")).toBeNull();
+  });
+
+  it("annotates order items and reports names that are still unmatched", () => {
+    const data = applyCatalog({
+      ...mergeDatasets([]),
+      catalog,
+      orders: [
+        {
+          ...demoOrder,
+          items: [
+            {
+              product: "WHEY ISO 2KG",
+              quantity: 2,
+              unitPrice: 2_000_000,
+              discount: 0,
+            },
+            {
+              product: "Creatine 300g",
+              quantity: 1,
+              unitPrice: 400_000,
+              discount: 0,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(data.orders[0].items[0]).toMatchObject({
+      productCode: "WHEY-ISO-2",
+      canonicalName: "Whey Isolate 2kg",
+      costPrice: 1_650_000,
+    });
+    expect(unmatchedNames(data.orders)).toEqual([
+      expect.objectContaining({
+        name: "Creatine 300g",
+        quantity: 1,
+        branches: ["HN"],
+      }),
+    ]);
+    expect(costOfGoods(data.orders)).toEqual({
+      cost: 3_300_000,
+      coverage: 2 / 3,
+    });
+  });
+});
+
+const demoOrder = {
+  key: "k",
+  branch: "HN" as const,
+  line: "HCT" as const,
+  channel: "store" as const,
+  date: "2026-10-01",
+  shift: "Sáng",
+  staff: "A",
+  code: "X1",
+  source: "",
+  customer: "",
+  phone: "",
+  address: "",
+  items: [],
+  total: 0,
+  shippingFee: 0,
+  paymentMethod: "",
+  paymentStatus: "",
+  deliveryStatus: "Đã giao",
+  postType: "",
+  cash: 0,
+  bank: 0,
+  card: 0,
+  cod: 0,
+  check: "OK",
+  inCashbook: true,
+  revenue: 4_400_000,
+};
 
 describe("branch reports on demo workbooks", () => {
   const data = mergeDatasets(demoWorkbooks().map(parseWorkbook));

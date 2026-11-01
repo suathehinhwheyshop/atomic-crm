@@ -11,6 +11,8 @@ import { useScopedData } from "../../components/useScopedData";
 import type { Granularity } from "../../model/period";
 import {
   branchUnits,
+  costMatrix,
+  costOfGoods,
   expenseMatrix,
   matrixTotal,
   orderCountMatrix,
@@ -40,28 +42,32 @@ export const RevenuePage = () => {
     const units = branchUnits(scoped);
     const revenue = revenueMatrix(scoped, units, granularity);
     const expenses = expenseMatrix(scoped, units, granularity);
+    const gross = subtract(
+      revenue,
+      costMatrix(scoped.orders, units, granularity),
+    );
     return {
       revenue,
       expenses,
       orders: orderCountMatrix(scoped, units, granularity),
-      result: subtract(revenue, expenses),
+      gross,
+      result: subtract(gross, expenses),
+      cogs: costOfGoods(scoped.orders),
     };
   }, [scoped, granularity]);
   if (!view) return null;
   const totalRevenue = matrixTotal(view.revenue);
   const totalExpenses = matrixTotal(view.expenses);
+  const coverage = Math.round(view.cogs.coverage * 100);
 
   return (
     <div className="space-y-4">
       <SourceNote>
         Doanh thu tính theo quy tắc của file báo cáo (nội thành chỉ đơn Đã giao,
-        Bưu điện theo Loại đơn, sàn chỉ dòng OK). Chi phí lấy từ Bảng Chi phí
-        (dòng OK), không gồm chuyển quỹ nội bộ và trả công nợ NCC.
-        <strong>
-          {" "}
-          Lợi nhuận thật cần giá vốn hàng bán, file chưa có [CHƯA CÓ SỐ]
-        </strong>
-        , nên bảng cuối chỉ là Doanh thu − Chi phí vận hành.
+        Bưu điện theo Loại đơn, sàn chỉ dòng OK). Chi phí vận hành lấy từ Bảng
+        Chi phí (dòng OK), không gồm chuyển quỹ nội bộ và trả công nợ NCC. Giá
+        vốn lấy theo Danh mục sản phẩm; đơn sàn và tên chưa quy chuẩn chưa có
+        giá vốn (hiện khớp {coverage}% số lượng bán ra).
       </SourceNote>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi
@@ -74,14 +80,14 @@ export const RevenuePage = () => {
           value={matrixTotal(view.orders).toLocaleString("vi-VN")}
         />
         <Kpi
-          label="Chi phí vận hành"
-          value={formatCompact(totalExpenses)}
-          hint={formatVnd(totalExpenses)}
+          label="Lợi nhuận gộp"
+          value={formatCompact(totalRevenue - view.cogs.cost)}
+          hint={`Giá vốn ${formatCompact(view.cogs.cost)} · khớp ${coverage}%`}
         />
         <Kpi
-          label="Doanh thu − Chi phí"
-          value={formatCompact(totalRevenue - totalExpenses)}
-          hint="Chưa trừ giá vốn"
+          label="Sau chi phí vận hành"
+          value={formatCompact(totalRevenue - view.cogs.cost - totalExpenses)}
+          hint={`Chi phí ${formatCompact(totalExpenses)}`}
         />
       </div>
       <div className="flex justify-end">
@@ -109,7 +115,15 @@ export const RevenuePage = () => {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Doanh thu − Chi phí vận hành (chưa trừ giá vốn)</CardTitle>
+          <CardTitle>Lợi nhuận gộp (Doanh thu − Giá vốn)</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
+          <MatrixTable matrix={view.gross} format={formatCompact} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Sau chi phí vận hành (Lợi nhuận gộp − Chi phí)</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           <MatrixTable matrix={view.result} format={formatCompact} />

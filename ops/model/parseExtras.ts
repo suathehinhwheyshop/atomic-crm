@@ -4,7 +4,6 @@ import type {
   CashbookRow,
   FundSummary,
   InventoryItem,
-  SupplierDebt,
   WorkbookSource,
 } from "./types";
 
@@ -77,7 +76,8 @@ export const parseFundSummaries = (
 
 /**
  * Proposed "Tồn kho" tab: header row "Ngày" (date of the count) then
- * Sản phẩm | Tồn | Đơn vị | Giá vốn | Tồn tối thiểu. One row per product.
+ * Mã SP | Sản phẩm | Tồn | Tồn tối thiểu. Unit and cost price come from the catalog
+ * (the optional Đơn vị / Giá vốn columns override them).
  */
 export const parseInventory = (
   source: WorkbookSource,
@@ -86,53 +86,20 @@ export const parseInventory = (
   const table = readTable(values);
   return table.rows.flatMap((row, index) => {
     const product = table.get(row, "Sản phẩm");
-    if (!product) return [];
+    const productCode = table.get(row, "Mã SP");
+    if (!product && !productCode) return [];
     return [
       {
         key: `${source.branch}-${source.line}-inv-${index}`,
         branch: source.branch,
         line: source.line,
+        productCode,
         product,
         quantity: parseAmount(table.get(row, "Tồn")),
         unit: table.get(row, "Đơn vị") || "cái",
         costPrice: parseAmount(table.get(row, "Giá vốn")),
         minimum: parseAmount(table.get(row, "Tồn tối thiểu")),
         updatedAt: parseDate(table.get(row, "Ngày")),
-      },
-    ];
-  });
-};
-
-/**
- * Proposed "Công nợ NCC" tab: header row "Ngày" (statement date) then
- * Nhà cung cấp | Nợ đầu kỳ | Nhập trong kỳ | Đã trả | Còn nợ | Hạn thanh toán | Ghi chú.
- */
-export const parseSupplierDebts = (
-  source: WorkbookSource,
-  values: string[][] | undefined,
-): SupplierDebt[] => {
-  const table = readTable(values);
-  return table.rows.flatMap((row, index) => {
-    const supplier = table.get(row, "Nhà cung cấp");
-    if (!supplier) return [];
-    const opening = parseAmount(table.get(row, "Nợ đầu kỳ"));
-    const purchased = parseAmount(table.get(row, "Nhập trong kỳ"));
-    const paid = parseAmount(table.get(row, "Đã trả"));
-    const balanceCell = table.get(row, "Còn nợ");
-    return [
-      {
-        key: `${source.branch}-${source.line}-debt-${index}`,
-        branch: source.branch,
-        line: source.line,
-        supplier,
-        opening,
-        purchased,
-        paid,
-        balance: balanceCell
-          ? parseAmount(balanceCell)
-          : opening + purchased - paid,
-        dueDate: parseDate(table.get(row, "Hạn thanh toán")),
-        note: table.get(row, "Ghi chú"),
       },
     ];
   });

@@ -11,8 +11,9 @@ import {
   POST_HEADER,
   STORE_HEADER,
   cashbookHeader,
-  debtHeader,
+  catalogHeader,
   inventoryHeader,
+  ledgerHeader,
 } from "./demoHeaders";
 
 const createRandom = (seed: number) => () => {
@@ -24,24 +25,82 @@ const vnAmount = (n: number) =>
   Math.round(n).toLocaleString("de-DE").replace(/,/g, ".");
 const vnDate = (iso: string) => format(parseISO(iso), "dd/MM/yyyy");
 
-const PRODUCTS: Record<"HCT" | "HXT", Array<[string, number, number]>> = {
-  // name, sale price, cost price
+// code, canonical name, sale price, cost price, alternative spellings used by other branches
+type DemoProduct = [string, string, number, number, string[]];
+const PRODUCTS: Record<"HCT" | "HXT", DemoProduct[]> = {
   HCT: [
-    ["Whey Isolate 2kg (demo)", 2_200_000, 1_650_000],
-    ["Whey Complex 1.8kg (demo)", 1_800_000, 1_350_000],
-    ["Creatine Monohydrate 300g (demo)", 450_000, 300_000],
-    ["Mass Gainer 5.4kg (demo)", 1_600_000, 1_200_000],
-    ["Yến mạch 4.5kg (demo)", 300_000, 200_000],
-    ["Magnesium 120 viên (demo)", 500_000, 320_000],
-    ["Vitamin tổng hợp 100 viên (demo)", 650_000, 420_000],
+    [
+      "WHEY-ISO-2",
+      "Whey Isolate 2kg (demo)",
+      2_200_000,
+      1_650_000,
+      ["WHEY ISO 2KG (demo)", "Whey Isolate 2kg socola (demo)"],
+    ],
+    [
+      "WHEY-CPX-18",
+      "Whey Complex 1.8kg (demo)",
+      1_800_000,
+      1_350_000,
+      ["Whey complex 4lbs (demo)"],
+    ],
+    [
+      "CREA-300",
+      "Creatine Monohydrate 300g (demo)",
+      450_000,
+      300_000,
+      ["Creatine 300g (demo)", "crea 300 (demo)"],
+    ],
+    [
+      "MASS-54",
+      "Mass Gainer 5.4kg (demo)",
+      1_600_000,
+      1_200_000,
+      ["Mass gainer 12lbs (demo)"],
+    ],
+    [
+      "OATS-45",
+      "Yến mạch 4.5kg (demo)",
+      300_000,
+      200_000,
+      ["Yến mạch thùng 4,5kg (demo)"],
+    ],
+    ["MAG-120", "Magnesium 120 viên (demo)", 500_000, 320_000, []],
+    [
+      "VIT-100",
+      "Vitamin tổng hợp 100 viên (demo)",
+      650_000,
+      420_000,
+      ["One a day 100 viên (demo)"],
+    ],
   ],
   HXT: [
-    ["Whey xách tay 2.2kg (demo)", 2_000_000, 1_500_000],
-    ["Pre-workout xách tay (demo)", 750_000, 500_000],
-    ["Omega 3 xách tay (demo)", 400_000, 260_000],
-    ["BCAA xách tay (demo)", 650_000, 430_000],
+    [
+      "XT-WHEY-22",
+      "Whey xách tay 2.2kg (demo)",
+      2_000_000,
+      1_500_000,
+      ["Whey XT 2.2kg (demo)"],
+    ],
+    ["XT-PRE", "Pre-workout xách tay (demo)", 750_000, 500_000, []],
+    [
+      "XT-OMEGA",
+      "Omega 3 xách tay (demo)",
+      400_000,
+      260_000,
+      ["Omega3 XT (demo)"],
+    ],
+    ["XT-BCAA", "BCAA xách tay (demo)", 650_000, 430_000, []],
   ],
 };
+// Typed by Da Nang staff, deliberately missing from the catalog to show the "chưa quy chuẩn" list.
+const UNKNOWN_PRODUCT: DemoProduct = [
+  "",
+  "Bình lắc tặng kèm có phí (demo)",
+  50_000,
+  30_000,
+  [],
+];
+
 const STAFF: Record<BranchCode, string[]> = {
   HN: ["HIẾU", "HIỆP", "ĐỨC", "QUANG", "VIỆT"],
   HCM: ["LINH", "NAM", "TRANG"],
@@ -91,12 +150,24 @@ const buildWorkbook = ({
 }: Spec): WorkbookSource => {
   const random = createRandom(seed);
   const pick = <T>(list: T[]) => list[Math.floor(random() * list.length)];
-  const products =
+  const catalog =
     line === "HXT"
       ? PRODUCTS.HXT
       : line === "HCT"
         ? PRODUCTS.HCT
         : [...PRODUCTS.HCT, ...PRODUCTS.HXT];
+  // Each branch types product names its own way: HN uses the canonical name, the
+  // others use an alternative spelling when one exists.
+  const variantIndex = { HN: -1, HCM: 0, VINH: 1, DN: 0 }[branch];
+  const products: Array<[string, number, number]> = catalog.map(
+    ([, name, price, cost, aliases]) => [
+      variantIndex >= 0 && aliases[variantIndex] ? aliases[variantIndex] : name,
+      price,
+      cost,
+    ],
+  );
+  if (branch === "DN")
+    products.push([UNKNOWN_PRODUCT[1], UNKNOWN_PRODUCT[2], UNKNOWN_PRODUCT[3]]);
   const customers = Array.from(
     { length: 40 + Math.round(scale * 40) },
     (_, i) => ({
@@ -420,7 +491,7 @@ const buildWorkbook = ({
         [shopee, "SP"],
       ] as const) {
         if (random() < 0.6 * scale) {
-          const revenue = pick(PRODUCTS.HCT)[1];
+          const revenue = pick(PRODUCTS.HCT)[2];
           const fee = Math.round(revenue * 0.12);
           const bad = random() < 0.05;
           list.push([
@@ -568,43 +639,72 @@ const buildWorkbook = ({
     }
   }
 
-  const inventory = products.map(([product, , cost]) => {
+  const inventory = catalog.map(([code, name, , , aliases]) => {
+    const typed =
+      variantIndex >= 0 && aliases[variantIndex] ? aliases[variantIndex] : name;
     const qty = Math.max(
       0,
-      Math.round(10 + random() * 60 * scale - (sold.get(product) ?? 0) * 0.3),
+      Math.round(10 + random() * 60 * scale - (sold.get(typed) ?? 0) * 0.3),
     );
     return [
       vnDate(DEMO_TODAY),
-      product,
+      code,
+      typed,
       String(qty),
-      "hộp",
-      vnAmount(cost),
       String(Math.round(8 * scale)),
     ];
   });
-  const debts = SUPPLIERS.slice(0, 2 + Math.round(scale * 2)).map(
-    (supplier, i) => {
-      const opening = Math.round((30_000_000 + random() * 80_000_000) * scale);
-      const purchased = Math.round(
-        (40_000_000 + random() * 120_000_000) * scale,
-      );
-      const paid = Math.round((opening + purchased) * (0.4 + random() * 0.5));
-      const due = format(
-        addDays(parseISO(DEMO_TODAY), -10 + i * 12),
-        "dd/MM/yyyy",
-      );
-      return [
-        vnDate(DEMO_TODAY),
+  const ledger: string[][] = [];
+  SUPPLIERS.slice(0, 2 + Math.round(scale * 2)).forEach((supplier, i) => {
+    ledger.push([
+      vnDate(DEMO_FROM),
+      supplier,
+      "Nợ đầu kỳ",
+      "",
+      "Số dư đầu 01/09",
+      vnAmount(Math.round((20_000_000 + random() * 40_000_000) * scale)),
+      vnDate("2026-09-15"),
+      "",
+    ]);
+    for (let month = 9; month <= 10; month++) {
+      const purchaseDay = `2026-${String(month).padStart(2, "0")}-${String(3 + i * 6).padStart(2, "0")}`;
+      const amount = Math.round((30_000_000 + random() * 60_000_000) * scale);
+      ledger.push([
+        vnDate(purchaseDay),
         supplier,
-        vnAmount(opening),
-        vnAmount(purchased),
-        vnAmount(paid),
-        vnAmount(opening + purchased - paid),
-        due,
-        i === 0 ? "Hạn 30 ngày" : "",
-      ];
-    },
-  );
+        "Nhập hàng",
+        `PN${month}${i}`,
+        "Nhập hàng tháng (demo)",
+        vnAmount(amount),
+        vnDate(format(addDays(parseISO(purchaseDay), 30), "yyyy-MM-dd")),
+        "",
+      ]);
+      const payDay = `2026-${String(month).padStart(2, "0")}-${month === 10 && i >= 2 ? "28" : "20"}`;
+      if (!(month === 10 && i === 1)) {
+        ledger.push([
+          vnDate(payDay),
+          supplier,
+          "Trả tiền",
+          `CP-${month}${i}`,
+          "Chuyển khoản trả NCC (demo)",
+          vnAmount(Math.round(amount * (0.6 + random() * 0.5))),
+          "",
+          "",
+        ]);
+      }
+    }
+  });
+  const catalogRows = catalog.map(([code, name, , cost, aliases]) => [
+    vnDate(DEMO_FROM),
+    code,
+    name,
+    name.includes("xách tay") ? "XT" : "Cty",
+    name.toLowerCase().includes("whey") ? "Whey" : "Khác",
+    "",
+    "hộp",
+    vnAmount(cost),
+    aliases.join("; "),
+  ]);
 
   const suffix = line === "HXT" ? "HXT kiot" : line === "HCT" ? "HKD" : branch;
   const tabs: Record<string, string[][]> = {
@@ -666,7 +766,17 @@ const buildWorkbook = ({
       ...cashbook,
     ],
     "Tồn kho": [...titleRows("Tồn kho"), inventoryHeader, ...inventory],
-    "Công nợ NCC": [...titleRows("Công nợ NCC"), debtHeader, ...debts],
+    "Công nợ NCC": [...titleRows("Công nợ NCC"), ledgerHeader, ...ledger],
+    // In production the catalog is one shared tab; the demo repeats it in the HN file only.
+    ...(branch === "HN"
+      ? {
+          "Danh mục sản phẩm": [
+            ...titleRows("Danh mục sản phẩm"),
+            catalogHeader,
+            ...catalogRows,
+          ],
+        }
+      : {}),
   };
   if (line !== "HXT") {
     tabs["Đơn Tiktok"] = [...titleRows("Đơn Tiktok"), ...tiktok];

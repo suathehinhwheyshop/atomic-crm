@@ -1,9 +1,10 @@
+import { findCatalogTab, mergeCatalogs, parseCatalog } from "./catalog";
 import {
   parseCashbook,
   parseFundSummaries,
   parseInventory,
-  parseSupplierDebts,
 } from "./parseExtras";
+import { parseSupplierLedger } from "./supplierLedger";
 import { parseAmount, parseDate, readTable, type Table } from "./sheet";
 import type {
   CashEntry,
@@ -263,10 +264,11 @@ export const parseWorkbook = (source: WorkbookSource): Dataset => {
       findTab(source, TAB_PREFIX.cashbook),
     ),
     inventory: parseInventory(source, findTab(source, TAB_PREFIX.inventory)),
-    supplierDebts: parseSupplierDebts(
+    supplierLedger: parseSupplierLedger(
       source,
       findTab(source, TAB_PREFIX.supplierDebts),
     ),
+    catalog: parseCatalog(findCatalogTab(source)),
   };
 };
 
@@ -278,7 +280,8 @@ export const mergeDatasets = (datasets: Dataset[]): Dataset => ({
   cashbook: datasets.flatMap((d) => d.cashbook),
   fundSummaries: datasets.flatMap((d) => d.fundSummaries),
   inventory: datasets.flatMap((d) => d.inventory),
-  supplierDebts: datasets.flatMap((d) => d.supplierDebts),
+  supplierLedger: datasets.flatMap((d) => d.supplierLedger),
+  catalog: mergeCatalogs(datasets.map((d) => d.catalog)),
 });
 
 export const CHANNEL_LABELS: Record<Channel, string> = {

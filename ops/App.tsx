@@ -27,6 +27,7 @@ import { ExpensesPage } from "./pages/finance/ExpensesPage";
 import { FundsPage } from "./pages/finance/FundsPage";
 import { RevenuePage } from "./pages/finance/RevenuePage";
 import { StatementPage } from "./pages/finance/StatementPage";
+import { CatalogPage } from "./pages/goods/CatalogPage";
 import { InventoryPage } from "./pages/goods/InventoryPage";
 import { VolumePage } from "./pages/goods/VolumePage";
 import { OrdersPage } from "./pages/OrdersPage";
@@ -45,6 +46,7 @@ const SECTIONS = [
 const GOODS_TABS = [
   { to: "/goods/volume", label: "Số lượng bán ra" },
   { to: "/goods/inventory", label: "Tồn kho" },
+  { to: "/goods/catalog", label: "Danh mục sản phẩm" },
 ];
 const FINANCE_TABS = [
   { to: "/finance/revenue", label: "Doanh thu" },
@@ -167,6 +169,7 @@ const Shell = () => {
               <Route index element={<Navigate to="/goods/volume" replace />} />
               <Route path="volume" element={<VolumePage />} />
               <Route path="inventory" element={<InventoryPage />} />
+              <Route path="catalog" element={<CatalogPage />} />
             </Route>
             <Route
               path="/finance"

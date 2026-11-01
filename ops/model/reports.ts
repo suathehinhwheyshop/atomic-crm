@@ -1,5 +1,6 @@
 // Branch-level reports for the Hàng hóa / Tài chính sections.
 import { periodOf, periodsOf, type Granularity, type Period } from "./period";
+import { supplierBalances, type SupplierBalance } from "./supplierLedger";
 import type {
   BranchCode,
   CashbookRow,
@@ -7,7 +8,6 @@ import type {
   GoodsLine,
   InventoryItem,
   Order,
-  SupplierDebt,
 } from "./types";
 
 export type BranchKey = `${BranchCode}-${GoodsLine}`;
@@ -38,7 +38,7 @@ export const branchUnits = (data: Dataset): BranchUnit[] => {
   data.orders.forEach(add);
   data.cashEntries.forEach(add);
   data.inventory.forEach(add);
-  data.supplierDebts.forEach(add);
+  data.supplierLedger.forEach(add);
   data.cashbook.forEach(add);
   return [...seen.values()].sort(
     (a, b) =>
@@ -96,6 +96,7 @@ export const matrixTotal = (
 
 export type ProductVolumeRow = {
   product: string;
+  code: string; // empty when the typed name is not in the catalog
   total: number;
   perUnit: Map<BranchKey, number>;
 };
@@ -109,14 +110,18 @@ export const productVolume = (orders: Order[]): ProductVolumeRow[] => {
       o.items
         .filter((i) => i.product && i.unitPrice > 0)
         .forEach((i) => {
-          const row = rows.get(i.product) ?? {
-            product: i.product,
+          const id = i.productCode
+            ? `code:${i.productCode}`
+            : `name:${i.product}`;
+          const row = rows.get(id) ?? {
+            product: i.canonicalName ?? i.product,
+            code: i.productCode ?? "",
             total: 0,
             perUnit: new Map(),
           };
           const key = unitKey(o);
           row.perUnit.set(key, (row.perUnit.get(key) ?? 0) + i.quantity);
-          rows.set(i.product, { ...row, total: row.total + i.quantity });
+          rows.set(id, { ...row, total: row.total + i.quantity });
         }),
     );
   return [...rows.values()].sort((a, b) => b.total - a.total);
@@ -182,30 +187,31 @@ export type DebtSummary = {
   paid: number;
   balance: number;
   overdue: number;
+  balances: SupplierBalance[];
 };
 
 export const debtSummary = (
-  debts: SupplierDebt[],
+  data: Dataset,
   units: BranchUnit[],
   today: string,
-): DebtSummary[] =>
-  units
+): DebtSummary[] => {
+  const all = supplierBalances(data.supplierLedger, today);
+  return units
     .map((unit) => {
-      const list = debts.filter((d) => unitKey(d) === unit.key);
+      const balances = all.filter((b) => unitKey(b) === unit.key);
       return {
         unit,
-        suppliers: list.length,
-        opening: sum(list, (d) => d.opening),
-        purchased: sum(list, (d) => d.purchased),
-        paid: sum(list, (d) => d.paid),
-        balance: sum(list, (d) => d.balance),
-        overdue: sum(
-          list.filter((d) => d.balance > 0 && d.dueDate && d.dueDate < today),
-          (d) => d.balance,
-        ),
+        suppliers: balances.length,
+        opening: sum(balances, (b) => b.opening),
+        purchased: sum(balances, (b) => b.purchased),
+        paid: sum(balances, (b) => b.paid),
+        balance: sum(balances, (b) => b.balance),
+        overdue: sum(balances, (b) => b.overdue30 + b.overdue90),
+        balances,
       };
     })
     .filter((s) => s.suppliers > 0);
+};
 
 export type FundPoint = {
   date: string;
@@ -263,6 +269,37 @@ const countedRevenue = (data: Dataset) => [
     .filter((o) => isOk(o.check))
     .map((o) => ({ ...o, amount: o.revenue })),
 ];
+
+/** Cost of goods sold from catalog cost prices; coverage = share of sold units that have a cost. */
+export const costOfGoods = (
+  orders: Order[],
+): { cost: number; coverage: number } => {
+  const items = orders
+    .filter((o) => o.revenue > 0)
+    .flatMap((o) => o.items)
+    .filter((i) => i.unitPrice > 0);
+  const units = sum(items, (i) => i.quantity);
+  const covered = sum(
+    items.filter((i) => i.costPrice),
+    (i) => i.quantity,
+  );
+  return {
+    cost: sum(items, (i) => i.quantity * (i.costPrice ?? 0)),
+    coverage: units ? covered / units : 0,
+  };
+};
+
+export const costMatrix = (
+  orders: Order[],
+  units: BranchUnit[],
+  granularity: Granularity,
+): Matrix =>
+  buildMatrix(
+    orders.filter((o) => o.revenue > 0),
+    units,
+    granularity,
+    (o) => sum(o.items, (i) => i.quantity * (i.costPrice ?? 0)),
+  );
 
 export const revenueMatrix = (
   data: Dataset,
@@ -327,8 +364,11 @@ export type StatementRow = {
   revenue: number;
   orders: number;
   expenses: number;
+  costOfGoods: number;
+  costCoverage: number;
+  grossProfit: number; // revenue − cost of goods (catalog prices)
   supplierPayments: number;
-  operatingResult: number; // revenue − operating expenses (cost of goods not available)
+  operatingResult: number; // gross profit − operating expenses
   debtBalance: number;
   cash: number;
   bank: number;
@@ -352,17 +392,24 @@ export const financialStatement = (
     const latest = of(data.cashbook)
       .sort((a, b) => a.date.localeCompare(b.date))
       .at(-1);
+    const cogs = costOfGoods(of(data.orders));
     return {
       unit,
       revenue,
       orders: revenueRows.length,
       expenses,
+      costOfGoods: cogs.cost,
+      costCoverage: cogs.coverage,
+      grossProfit: revenue - cogs.cost,
       supplierPayments: sum(
         of(data.cashEntries).filter(isSupplierPayment),
         (e) => e.amount,
       ),
-      operatingResult: revenue - expenses,
-      debtBalance: sum(of(data.supplierDebts), (d) => d.balance),
+      operatingResult: revenue - cogs.cost - expenses,
+      debtBalance: sum(
+        supplierBalances(of(data.supplierLedger), "9999-12-31"),
+        (b) => b.balance,
+      ),
       cash: latest?.cashBalance ?? 0,
       bank: latest?.bankBalance ?? 0,
       pendingCard: latest?.pendingCardBalance ?? 0,

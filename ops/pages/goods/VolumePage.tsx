@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -80,11 +81,23 @@ export const VolumePage = () => {
             </TableHeader>
             <TableBody>
               {products.map((p) => (
-                <TableRow key={p.product}>
+                <TableRow key={p.code || p.product}>
                   <TableCell className="max-w-96">
                     <span className="line-clamp-1" title={p.product}>
                       {p.product}
                     </span>
+                    {p.code ? (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {p.code}
+                      </span>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500 text-amber-600"
+                      >
+                        chưa quy chuẩn
+                      </Badge>
+                    )}
                   </TableCell>
                   {view.units.map((u) => {
                     const v = p.perUnit.get(u.key) ?? 0;

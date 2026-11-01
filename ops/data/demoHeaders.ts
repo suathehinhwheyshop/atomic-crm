@@ -118,19 +118,29 @@ export const cashbookHeader = (bank: string) => [
 ];
 export const inventoryHeader = [
   "Ngày",
+  "Mã SP",
   "Sản phẩm",
   "Tồn",
-  "Đơn vị",
-  "Giá vốn",
   "Tồn tối thiểu",
 ];
-export const debtHeader = [
+export const ledgerHeader = [
   "Ngày",
   "Nhà cung cấp",
-  "Nợ đầu kỳ",
-  "Nhập trong kỳ",
-  "Đã trả",
-  "Còn nợ",
+  "Loại",
+  "Số phiếu",
+  "Diễn giải",
+  "Số tiền",
   "Hạn thanh toán",
   "Ghi chú",
+];
+export const catalogHeader = [
+  "Ngày",
+  "Mã SP",
+  "Tên chuẩn",
+  "Thương hiệu",
+  "Nhóm",
+  "Quy cách",
+  "Đơn vị",
+  "Giá vốn",
+  "Tên khác",
 ];

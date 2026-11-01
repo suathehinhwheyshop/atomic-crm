@@ -121,9 +121,8 @@ export const OverviewPage = () => {
                 <TableHead className="text-right">Doanh thu</TableHead>
                 <TableHead className="text-right">Số đơn</TableHead>
                 <TableHead className="text-right">Chi phí vận hành</TableHead>
-                <TableHead className="text-right">
-                  Doanh thu − Chi phí
-                </TableHead>
+                <TableHead className="text-right">Lợi nhuận gộp</TableHead>
+                <TableHead className="text-right">Sau chi phí</TableHead>
                 <TableHead className="text-right">Tồn quỹ</TableHead>
                 <TableHead className="text-right">Nợ NCC</TableHead>
               </TableRow>
@@ -140,6 +139,9 @@ export const OverviewPage = () => {
                   <TableCell className="text-right">{b.orders}</TableCell>
                   <TableCell className="text-right">
                     {formatVnd(b.expenses)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatVnd(b.grossProfit)}
                   </TableCell>
                   <TableCell className="text-right">
                     {formatVnd(b.operatingResult)}

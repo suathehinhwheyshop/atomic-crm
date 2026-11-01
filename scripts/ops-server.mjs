@@ -27,6 +27,10 @@ const TAB_PREFIXES = [
   "Đơn Shopee",
   "Bảng Chi phí",
   "MPOS về",
+  "Sổ quỹ",
+  "Tồn kho",
+  "Công nợ NCC",
+  "Danh mục sản phẩm",
 ];
 const MIME = {
   ".html": "text/html",

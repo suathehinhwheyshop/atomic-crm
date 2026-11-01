@@ -34,16 +34,15 @@ const LINES: Line[] = [
   { label: "Số đơn tính doanh thu", value: (r) => r.orders, muted: true },
   {
     label: "Giá vốn hàng bán",
-    value: () => 0,
-    muted: true,
-    note: "[CHƯA CÓ SỐ]",
+    value: (r) => r.costOfGoods,
+    note: "theo Danh mục sản phẩm",
   },
+  { label: "Lợi nhuận gộp", value: (r) => r.grossProfit, strong: true },
   { label: "Chi phí vận hành", value: (r) => r.expenses },
   {
-    label: "Doanh thu − Chi phí vận hành",
+    label: "Lợi nhuận sau chi phí vận hành",
     value: (r) => r.operatingResult,
     strong: true,
-    note: "chưa trừ giá vốn",
   },
   { label: "Đã trả nhà cung cấp trong kỳ", value: (r) => r.supplierPayments },
   {
@@ -114,20 +113,16 @@ export const StatementPage = () => {
                       key={r.unit.key}
                       className={`text-right ${line.strong ? "font-semibold" : line.muted ? "text-muted-foreground" : ""}`}
                     >
-                      {line.note === "[CHƯA CÓ SỐ]"
-                        ? "–"
-                        : fmt(line, line.value(r))}
+                      {fmt(line, line.value(r))}
                     </TableCell>
                   ))}
                   <TableCell
                     className={`text-right ${line.strong ? "font-semibold" : line.muted ? "text-muted-foreground" : ""}`}
                   >
-                    {line.note === "[CHƯA CÓ SỐ]"
-                      ? "–"
-                      : fmt(
-                          line,
-                          rows.reduce((t, r) => t + line.value(r), 0),
-                        )}
+                    {fmt(
+                      line,
+                      rows.reduce((t, r) => t + line.value(r), 0),
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -138,8 +133,9 @@ export const StatementPage = () => {
                   colSpan={rows.length + 2}
                   className="text-xs font-normal text-muted-foreground"
                 >
-                  Khi có tab Tồn kho với giá vốn và số bán ra, lợi nhuận gộp sẽ
-                  tính được = Doanh thu − Giá vốn.
+                  Giá vốn = số lượng bán × giá vốn trong Danh mục sản phẩm. Đơn
+                  sàn và tên chưa quy chuẩn chưa có giá vốn (xem tỷ lệ khớp ở
+                  Hàng hóa › Danh mục sản phẩm).
                 </TableCell>
               </TableRow>
             </TableFooter>

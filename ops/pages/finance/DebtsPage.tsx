@@ -1,7 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -17,38 +24,136 @@ import { Kpi } from "../../components/Kpi";
 import { SourceNote } from "../../components/SourceNote";
 import { UnitLabel, unitLabel } from "../../components/UnitLabel";
 import { useScopedData } from "../../components/useScopedData";
-import { branchUnits, debtSummary, unitKey } from "../../model/reports";
+import { branchUnits, debtSummary } from "../../model/reports";
+import { KIND_LABELS, type SupplierBalance } from "../../model/supplierLedger";
+
+const money = (v: number) =>
+  v ? formatVnd(v) : <span className="text-muted-foreground">–</span>;
+
+const LedgerSheet = ({
+  balance,
+  onClose,
+}: {
+  balance: SupplierBalance | null;
+  onClose: () => void;
+}) => {
+  const running = useMemo(() => {
+    if (!balance) return [];
+    let total = 0;
+    return [...balance.entries]
+      .reverse()
+      .map((e) => {
+        total += e.kind === "payment" ? -e.amount : e.amount;
+        return { ...e, running: total };
+      })
+      .reverse();
+  }, [balance]);
+  return (
+    <Sheet
+      open={Boolean(balance)}
+      onOpenChange={(open) => (open ? null : onClose())}
+    >
+      <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-4xl">
+        {balance ? (
+          <>
+            <SheetHeader>
+              <SheetTitle>{balance.supplier}</SheetTitle>
+              <SheetDescription>
+                {unitLabel({
+                  key: `${balance.branch}-${balance.line}`,
+                  branch: balance.branch,
+                  line: balance.line,
+                })}{" "}
+                · còn nợ <strong>{formatVnd(balance.balance)}</strong>
+                {balance.nextDue
+                  ? ` · hạn gần nhất ${formatDate(balance.nextDue)}`
+                  : ""}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="overflow-x-auto px-4 pb-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ngày</TableHead>
+                    <TableHead>Loại</TableHead>
+                    <TableHead>Số phiếu</TableHead>
+                    <TableHead>Diễn giải</TableHead>
+                    <TableHead className="text-right">Nợ tăng</TableHead>
+                    <TableHead className="text-right">Đã trả</TableHead>
+                    <TableHead className="text-right">Còn nợ</TableHead>
+                    <TableHead>Hạn</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {running.map((e) => (
+                    <TableRow key={e.key}>
+                      <TableCell>{formatDate(e.date)}</TableCell>
+                      <TableCell>{KIND_LABELS[e.kind]}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {e.ref}
+                      </TableCell>
+                      <TableCell className="max-w-56">
+                        <span className="line-clamp-1" title={e.description}>
+                          {e.description}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {e.kind === "payment" ? "" : formatVnd(e.amount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {e.kind === "payment" ? formatVnd(e.amount) : ""}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatVnd(e.running)}
+                      </TableCell>
+                      <TableCell>{formatDate(e.dueDate)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  );
+};
 
 export const DebtsPage = () => {
   const { loaded, scoped } = useScopedData();
-  const view = useMemo(() => {
-    if (!scoped || !loaded) return null;
-    const units = branchUnits(scoped);
-    return {
-      units,
-      summary: debtSummary(scoped.supplierDebts, units, loaded.today),
-      debts: [...scoped.supplierDebts].sort((a, b) => b.balance - a.balance),
-      today: loaded.today,
-    };
-  }, [scoped, loaded]);
-  if (!view) return null;
-  const total = view.summary.reduce(
+  const [selected, setSelected] = useState<SupplierBalance | null>(null);
+  const summary = useMemo(
+    () =>
+      scoped && loaded
+        ? debtSummary(scoped, branchUnits(scoped), loaded.today)
+        : [],
+    [scoped, loaded],
+  );
+  const balances = summary
+    .flatMap((s) => s.balances)
+    .sort((a, b) => b.balance - a.balance);
+  const total = summary.reduce(
     (t, s) => ({
-      balance: t.balance + s.balance,
-      overdue: t.overdue + s.overdue,
+      opening: t.opening + s.opening,
       purchased: t.purchased + s.purchased,
       paid: t.paid + s.paid,
+      balance: t.balance + s.balance,
+      overdue: t.overdue + s.overdue,
     }),
-    { balance: 0, overdue: 0, purchased: 0, paid: 0 },
+    { opening: 0, purchased: 0, paid: 0, balance: 0, overdue: 0 },
   );
+  const notDue = balances.reduce((t, b) => t + b.notDue, 0);
+  const overdue90 = balances.reduce((t, b) => t + b.overdue90, 0);
 
   return (
     <div className="space-y-4">
       <SourceNote proposed>
-        Đề xuất thêm vào mỗi file tab <strong>Công nợ NCC</strong> với các cột:
-        Ngày | Nhà cung cấp | Nợ đầu kỳ | Nhập trong kỳ | Đã trả | Còn nợ | Hạn
-        thanh toán | Ghi chú (1 dòng mỗi nhà cung cấp). Tiền đã trả NCC hiện có
-        thể đối chiếu với nhóm CÔNG NỢ NCC ở Bảng Chi phí.
+        Đề xuất tab <strong>Công nợ NCC</strong> ghi từng phát sinh, 1 dòng 1
+        việc: Ngày | Nhà cung cấp | Loại (Nợ đầu kỳ / Nhập hàng / Trả tiền) | Số
+        phiếu | Diễn giải | Số tiền | Hạn thanh toán | Ghi chú. App tự tính còn
+        nợ, trừ tiền trả vào khoản cũ nhất trước, và báo quá hạn theo hạn của
+        từng lần nhập. Dòng "Trả tiền" đối chiếu được với nhóm CÔNG NỢ NCC ở
+        Bảng Chi phí.
       </SourceNote>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi
@@ -56,14 +161,17 @@ export const DebtsPage = () => {
           value={formatCompact(total.balance)}
           hint={formatVnd(total.balance)}
         />
+        <Kpi label="Chưa đến hạn" value={formatCompact(notDue)} />
         <Kpi
-          label="Quá hạn"
-          value={formatCompact(total.overdue)}
-          hint={formatVnd(total.overdue)}
-          tone={total.overdue ? "warning" : "default"}
+          label="Quá hạn ≤ 30 ngày"
+          value={formatCompact(total.overdue - overdue90)}
+          tone={total.overdue - overdue90 ? "warning" : "default"}
         />
-        <Kpi label="Nhập trong kỳ" value={formatCompact(total.purchased)} />
-        <Kpi label="Đã trả trong kỳ" value={formatCompact(total.paid)} />
+        <Kpi
+          label="Quá hạn > 30 ngày"
+          value={formatCompact(overdue90)}
+          tone={overdue90 ? "warning" : "default"}
+        />
       </div>
       <Card>
         <CardHeader>
@@ -76,14 +184,14 @@ export const DebtsPage = () => {
                 <TableHead>Chi nhánh</TableHead>
                 <TableHead className="text-right">Số NCC</TableHead>
                 <TableHead className="text-right">Nợ đầu kỳ</TableHead>
-                <TableHead className="text-right">Nhập trong kỳ</TableHead>
+                <TableHead className="text-right">Nhập hàng</TableHead>
                 <TableHead className="text-right">Đã trả</TableHead>
                 <TableHead className="text-right">Còn nợ</TableHead>
                 <TableHead className="text-right">Quá hạn</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {view.summary.map((s) => (
+              {summary.map((s) => (
                 <TableRow key={s.unit.key}>
                   <TableCell>
                     <UnitLabel unit={s.unit} />
@@ -118,7 +226,7 @@ export const DebtsPage = () => {
                 <TableCell>Tổng</TableCell>
                 <TableCell />
                 <TableCell className="text-right">
-                  {formatVnd(view.summary.reduce((t, s) => t + s.opening, 0))}
+                  {formatVnd(total.opening)}
                 </TableCell>
                 <TableCell className="text-right">
                   {formatVnd(total.purchased)}
@@ -139,7 +247,7 @@ export const DebtsPage = () => {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Chi tiết theo nhà cung cấp</CardTitle>
+          <CardTitle>Chi tiết từng nhà cung cấp (bấm để xem sổ)</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -147,46 +255,81 @@ export const DebtsPage = () => {
               <TableRow>
                 <TableHead>Chi nhánh</TableHead>
                 <TableHead>Nhà cung cấp</TableHead>
+                <TableHead className="text-right">Nhập hàng</TableHead>
+                <TableHead className="text-right">Đã trả</TableHead>
                 <TableHead className="text-right">Còn nợ</TableHead>
-                <TableHead>Hạn thanh toán</TableHead>
+                <TableHead className="text-right">Chưa đến hạn</TableHead>
+                <TableHead className="text-right">Quá hạn ≤30</TableHead>
+                <TableHead className="text-right">Quá hạn &gt;30</TableHead>
+                <TableHead>Hạn gần nhất</TableHead>
                 <TableHead>Tình trạng</TableHead>
-                <TableHead>Ghi chú</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {view.debts.map((d) => {
-                const overdue =
-                  d.balance > 0 && d.dueDate && d.dueDate < view.today;
-                const unit = view.units.find((u) => u.key === unitKey(d));
-                return (
-                  <TableRow key={d.key}>
-                    <TableCell className="whitespace-nowrap">
-                      {unit ? unitLabel(unit) : d.branch}
-                    </TableCell>
-                    <TableCell className="font-medium">{d.supplier}</TableCell>
-                    <TableCell className="text-right">
-                      {formatVnd(d.balance)}
-                    </TableCell>
-                    <TableCell>{formatDate(d.dueDate) || "–"}</TableCell>
-                    <TableCell>
-                      {d.balance <= 0 ? (
-                        <Badge variant="secondary">Đã trả hết</Badge>
-                      ) : overdue ? (
-                        <Badge variant="destructive">Quá hạn</Badge>
-                      ) : (
-                        <Badge variant="outline">Trong hạn</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {d.note}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {balances.map((b) => (
+                <TableRow
+                  key={`${b.branch}-${b.line}-${b.supplier}`}
+                  className="cursor-pointer"
+                  onClick={() => setSelected(b)}
+                >
+                  <TableCell className="whitespace-nowrap">
+                    {unitLabel({
+                      key: `${b.branch}-${b.line}`,
+                      branch: b.branch,
+                      line: b.line,
+                    })}
+                  </TableCell>
+                  <TableCell className="font-medium">{b.supplier}</TableCell>
+                  <TableCell className="text-right">
+                    {money(b.opening + b.purchased)}
+                  </TableCell>
+                  <TableCell className="text-right">{money(b.paid)}</TableCell>
+                  <TableCell className="text-right font-semibold">
+                    {money(b.balance)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {money(b.notDue)}
+                  </TableCell>
+                  <TableCell
+                    className={
+                      b.overdue30 ? "text-right text-amber-600" : "text-right"
+                    }
+                  >
+                    {money(b.overdue30)}
+                  </TableCell>
+                  <TableCell
+                    className={
+                      b.overdue90
+                        ? "text-right font-medium text-destructive"
+                        : "text-right"
+                    }
+                  >
+                    {money(b.overdue90)}
+                  </TableCell>
+                  <TableCell>{formatDate(b.nextDue) || "–"}</TableCell>
+                  <TableCell>
+                    {b.balance <= 0 ? (
+                      <Badge variant="secondary">Đã trả hết</Badge>
+                    ) : b.overdue90 ? (
+                      <Badge variant="destructive">Quá hạn lâu</Badge>
+                    ) : b.overdue30 ? (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500 text-amber-600"
+                      >
+                        Quá hạn
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Trong hạn</Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+      <LedgerSheet balance={selected} onClose={() => setSelected(null)} />
     </div>
   );
 };

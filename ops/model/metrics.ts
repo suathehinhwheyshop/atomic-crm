@@ -37,7 +37,11 @@ export const filterDataset = (data: Dataset, filters: Filters): Dataset => {
     cashbook: data.cashbook.filter(keep),
     fundSummaries: data.fundSummaries.filter(keepSnapshot),
     inventory: data.inventory.filter(keepSnapshot),
-    supplierDebts: data.supplierDebts.filter(keepSnapshot),
+    // The ledger is cumulative: keep every entry up to the period end so balances are right.
+    supplierLedger: data.supplierLedger.filter(
+      (e) => keepSnapshot(e) && (!filters.to || e.date <= filters.to),
+    ),
+    catalog: data.catalog,
   };
 };
 
