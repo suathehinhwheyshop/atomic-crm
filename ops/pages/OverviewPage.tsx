@@ -32,9 +32,9 @@ import {
   shiftSummary,
   staffTotals,
   summarizeChannels,
-  topProducts,
 } from "../model/metrics";
 import { CHANNEL_LABELS } from "../model/parseWorkbook";
+import { pendingMoney } from "../model/finance";
 import { branchUnits, financialStatement } from "../model/reports";
 import { UnitLabel } from "../components/UnitLabel";
 
@@ -47,14 +47,24 @@ export const OverviewPage = () => {
       kpis: computeKpis(scoped),
       channels,
       days: revenueByDay(scoped),
-      products: topProducts(scoped.orders),
+      pending: pendingMoney(scoped, branchUnits(scoped)),
       staff: staffTotals(shiftSummary(scoped.orders)).slice(0, 6),
       alerts: buildAlerts(scoped, loaded.today),
       branches: financialStatement(scoped, branchUnits(scoped)),
     };
   }, [scoped, loaded]);
   if (!view) return null;
-  const { kpis, channels, days, products, staff, alerts, branches } = view;
+  const { kpis, channels, days, pending, staff, alerts, branches } = view;
+  const pendingTotal = pending.reduce(
+    (t, p) =>
+      t +
+      p.localUnpaid +
+      p.postNotDelivered +
+      p.codCollected +
+      p.platformNet +
+      p.pendingCards,
+    0,
+  );
   const totals = channels.reduce(
     (t, c) => ({
       orders: t.orders + c.orders,
@@ -121,10 +131,11 @@ export const OverviewPage = () => {
                 <TableHead className="text-right">Doanh thu</TableHead>
                 <TableHead className="text-right">Số đơn</TableHead>
                 <TableHead className="text-right">Chi phí vận hành</TableHead>
-                <TableHead className="text-right">Lợi nhuận gộp</TableHead>
-                <TableHead className="text-right">Sau chi phí</TableHead>
-                <TableHead className="text-right">Tồn quỹ</TableHead>
-                <TableHead className="text-right">Nợ NCC</TableHead>
+                <TableHead className="text-right">
+                  Doanh thu − Chi phí
+                </TableHead>
+                <TableHead className="text-right">Tồn quỹ cuối kỳ</TableHead>
+                <TableHead className="text-right">Nợ NCC cuối kỳ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -141,10 +152,7 @@ export const OverviewPage = () => {
                     {formatVnd(b.expenses)}
                   </TableCell>
                   <TableCell className="text-right">
-                    {formatVnd(b.grossProfit)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatVnd(b.operatingResult)}
+                    {formatVnd(b.revenue - b.expenses)}
                   </TableCell>
                   <TableCell className="text-right">
                     {formatVnd(b.cash + b.bank)}
@@ -244,28 +252,50 @@ export const OverviewPage = () => {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Sản phẩm bán chạy</CardTitle>
+            <CardTitle>
+              Tiền chưa vào Sổ quỹ · {formatCompact(pendingTotal)}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {products.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có dữ liệu</p>
-            ) : null}
-            {products.map((p) => (
+            {[
+              [
+                "Nội thành đã giao chưa thu",
+                pending.reduce((t, p) => t + p.localUnpaid, 0),
+              ],
+              [
+                "Bưu điện đang giao",
+                pending.reduce((t, p) => t + p.postNotDelivered, 0),
+              ],
+              [
+                "COD đã thu hộ chưa về sổ",
+                pending.reduce((t, p) => t + p.codCollected, 0),
+              ],
+              [
+                "Tiền sàn chưa rút",
+                pending.reduce((t, p) => t + p.platformNet, 0),
+              ],
+              ["MPOS chờ về", pending.reduce((t, p) => t + p.pendingCards, 0)],
+              [
+                "Đơn lỗi kiểm tra",
+                pending.reduce((t, p) => t + p.orderIssues, 0),
+              ],
+            ].map(([label, value]) => (
               <div
-                key={p.product}
-                className="flex items-baseline justify-between gap-3 text-sm"
+                key={label as string}
+                className="flex items-baseline justify-between text-sm"
               >
-                <span className="line-clamp-1" title={p.product}>
-                  {p.product}
-                </span>
-                <span className="shrink-0 text-muted-foreground">
-                  {p.quantity} ·{" "}
-                  <span className="font-medium text-foreground">
-                    {formatCompact(p.amount)}
-                  </span>
+                <span>{label as string}</span>
+                <span className="font-medium">
+                  {formatVnd(value as number)}
                 </span>
               </div>
             ))}
+            <Link
+              to="/finance/channels"
+              className="block pt-1 text-xs text-primary hover:underline"
+            >
+              Xem theo chi nhánh
+            </Link>
           </CardContent>
         </Card>
         <Card>

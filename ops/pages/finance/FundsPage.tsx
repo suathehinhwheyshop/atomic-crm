@@ -16,83 +16,175 @@ import { formatCompact, formatDate, formatVnd } from "../../components/format";
 import { Kpi } from "../../components/Kpi";
 import { SourceNote } from "../../components/SourceNote";
 import { UnitLabel } from "../../components/UnitLabel";
-import { useScopedData } from "../../components/useScopedData";
-import {
-  branchUnits,
-  fundLatestByUnit,
-  fundSeries,
-  unitKey,
-} from "../../model/reports";
+import { useReportScope } from "../../components/useReportScope";
+import { fundPeriods, type FundPeriod } from "../../model/finance";
+import { fundSeries } from "../../model/reports";
+
+const FUND_LABEL = { cash: "Tiền mặt", bank: "Ngân hàng" };
+
+const totals = (rows: FundPeriod[]) =>
+  rows.reduce(
+    (t, r) => ({
+      opening: t.opening + r.opening,
+      inflow: t.inflow + r.inflow,
+      outflow: t.outflow + r.outflow,
+      closing: t.closing + r.closing,
+    }),
+    { opening: 0, inflow: 0, outflow: 0, closing: 0 },
+  );
 
 export const FundsPage = () => {
-  const { scoped } = useScopedData();
+  const { scoped, units, from, to } = useReportScope();
   const view = useMemo(() => {
     if (!scoped) return null;
-    const units = branchUnits(scoped);
+    const periods = fundPeriods(scoped, units, from, to);
     return {
-      series: fundSeries(scoped.cashbook),
-      latest: fundLatestByUnit(scoped.cashbook, units),
-      summaries: scoped.fundSummaries,
-      units,
+      periods,
+      series: fundSeries(scoped.cashbook.filter((r) => r.date >= from)),
+      pending: scoped.pendingCards.reduce((t, p) => t + p.amount, 0),
     };
-  }, [scoped]);
+  }, [scoped, units, from, to]);
   if (!view) return null;
-  const last = view.series.at(-1);
-  const first = view.series[0];
-  const totals = view.latest.reduce(
-    (t, r) => ({
-      cash: t.cash + r.cashBalance,
-      bank: t.bank + r.bankBalance,
-      pending: t.pending + r.pendingCardBalance,
-    }),
-    { cash: 0, bank: 0, pending: 0 },
-  );
+  const all = totals(view.periods);
+  const cash = totals(view.periods.filter((p) => p.fund === "cash"));
+  const bank = totals(view.periods.filter((p) => p.fund === "bank"));
   const chart = view.series
     .filter(
-      (_, i, all) =>
-        all.length <= 40 ||
-        i % Math.ceil(all.length / 40) === 0 ||
-        i === all.length - 1,
+      (_, i, list) =>
+        list.length <= 40 ||
+        i % Math.ceil(list.length / 40) === 0 ||
+        i === list.length - 1,
     )
     .map((p) => ({ ...p, label: formatDate(p.date).slice(0, 5) }));
 
   return (
     <div className="space-y-4">
       <SourceNote>
-        Tồn quỹ lấy từ tab Sổ quỹ của từng file: số dư cuối mỗi ngày (cột Tồn
-        tiền mặt, Tồn BIDV/MB). Ngân hàng chưa gồm MPOS đang chờ về. "Số dư thực
-        tế" là ô kế toán nhập ở đầu tab Sổ quỹ khi chốt.
+        Lấy từ tab Sổ quỹ của từng file: số dư đầu kỳ là tồn cuối ngày trước kỳ,
+        thu/chi cộng trong kỳ, số dư cuối kỳ là tồn ngày cuối. Ngân hàng chưa
+        gồm MPOS đang chờ về. "Thực tế" là số kế toán nhập ở đầu tab Sổ quỹ khi
+        chốt, chỉ hiện khi ngày chốt trùng ngày cuối kỳ.
       </SourceNote>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Kpi
-          label="Tồn tiền mặt"
-          value={formatCompact(totals.cash)}
-          hint={formatVnd(totals.cash)}
-          tone={totals.cash < 0 ? "warning" : "default"}
+          label="Đầu kỳ"
+          value={formatCompact(all.opening)}
+          hint={formatDate(from)}
         />
+        <Kpi label="Tổng thu trong kỳ" value={formatCompact(all.inflow)} />
+        <Kpi label="Tổng chi trong kỳ" value={formatCompact(all.outflow)} />
         <Kpi
-          label="Tồn ngân hàng"
-          value={formatCompact(totals.bank)}
-          hint={formatVnd(totals.bank)}
+          label="Cuối kỳ"
+          value={formatCompact(all.closing)}
+          hint={`Tiền mặt ${formatCompact(cash.closing)} · NH ${formatCompact(bank.closing)}`}
         />
         <Kpi
           label="MPOS chờ về"
-          value={formatCompact(totals.pending)}
+          value={formatCompact(view.pending)}
           hint="Chưa cộng vào ngân hàng"
-        />
-        <Kpi
-          label="Thay đổi trong kỳ"
-          value={last && first ? formatCompact(last.total - first.total) : "–"}
-          hint={
-            last && first
-              ? `${formatDate(first.date)} → ${formatDate(last.date)}`
-              : ""
-          }
+          tone={view.pending ? "warning" : "default"}
         />
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Tồn quỹ theo thời gian (tiền mặt + ngân hàng)</CardTitle>
+          <CardTitle>Sổ quỹ tóm tắt theo chi nhánh</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Chi nhánh</TableHead>
+                <TableHead>Quỹ</TableHead>
+                <TableHead className="text-right">Đầu kỳ</TableHead>
+                <TableHead className="text-right">Thu</TableHead>
+                <TableHead className="text-right">Chi</TableHead>
+                <TableHead className="text-right">Cuối kỳ</TableHead>
+                <TableHead>Ngày sổ</TableHead>
+                <TableHead className="text-right">Thực tế</TableHead>
+                <TableHead className="text-right">Lệch</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {view.periods.map((p) => {
+                const diff = p.actual != null ? p.closing - p.actual : null;
+                return (
+                  <TableRow key={`${p.unit.key}-${p.fund}`}>
+                    <TableCell>
+                      {p.fund === "cash" ? <UnitLabel unit={p.unit} /> : null}
+                    </TableCell>
+                    <TableCell>{FUND_LABEL[p.fund]}</TableCell>
+                    <TableCell className="text-right">
+                      {formatVnd(p.opening)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatVnd(p.inflow)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatVnd(p.outflow)}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        p.closing < 0
+                          ? "text-right font-semibold text-destructive"
+                          : "text-right font-semibold"
+                      }
+                    >
+                      {formatVnd(p.closing)}
+                    </TableCell>
+                    <TableCell>{formatDate(p.closingDate)}</TableCell>
+                    <TableCell className="text-right">
+                      {p.actual != null ? (
+                        formatVnd(p.actual)
+                      ) : (
+                        <span className="text-muted-foreground">chưa chốt</span>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        diff
+                          ? "text-right font-medium text-destructive"
+                          : "text-right text-muted-foreground"
+                      }
+                    >
+                      {diff == null ? "–" : formatVnd(diff)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+            <TableFooter>
+              {[
+                ["Tiền mặt", cash],
+                ["Ngân hàng", bank],
+                ["Tổng", all],
+              ].map(([label, t]) => (
+                <TableRow key={label as string}>
+                  <TableCell>{label as string}</TableCell>
+                  <TableCell />
+                  <TableCell className="text-right">
+                    {formatVnd((t as typeof all).opening)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatVnd((t as typeof all).inflow)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatVnd((t as typeof all).outflow)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatVnd((t as typeof all).closing)}
+                  </TableCell>
+                  <TableCell colSpan={3} />
+                </TableRow>
+              ))}
+            </TableFooter>
+          </Table>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Tồn quỹ theo ngày trong kỳ (tiền mặt + ngân hàng)
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-64">
@@ -124,99 +216,6 @@ export const FundsPage = () => {
               }}
             />
           </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Tồn quỹ hiện tại từng chi nhánh</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Chi nhánh</TableHead>
-                <TableHead>Ngày sổ</TableHead>
-                <TableHead className="text-right">Tiền mặt</TableHead>
-                <TableHead className="text-right">Ngân hàng</TableHead>
-                <TableHead className="text-right">MPOS chờ về</TableHead>
-                <TableHead className="text-right">Tổng</TableHead>
-                <TableHead className="text-right">Thực tế (tiền mặt)</TableHead>
-                <TableHead className="text-right">Lệch</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {view.latest.map((r) => {
-                const summary = view.summaries.find(
-                  (s) => unitKey(s) === r.unit.key && s.fund === "cash",
-                );
-                const diff =
-                  summary?.actual != null
-                    ? r.cashBalance - summary.actual
-                    : null;
-                return (
-                  <TableRow key={r.unit.key}>
-                    <TableCell>
-                      <UnitLabel unit={r.unit} />
-                    </TableCell>
-                    <TableCell>{formatDate(r.date)}</TableCell>
-                    <TableCell
-                      className={
-                        r.cashBalance < 0
-                          ? "text-right text-destructive"
-                          : "text-right"
-                      }
-                    >
-                      {formatVnd(r.cashBalance)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatVnd(r.bankBalance)}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {formatVnd(r.pendingCardBalance)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatVnd(r.cashBalance + r.bankBalance)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {summary?.actual != null ? (
-                        formatVnd(summary.actual)
-                      ) : (
-                        <span className="text-muted-foreground">chưa chốt</span>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className={
-                        diff
-                          ? "text-right font-medium text-destructive"
-                          : "text-right text-muted-foreground"
-                      }
-                    >
-                      {diff == null ? "–" : diff ? formatVnd(diff) : "0 ₫"}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell>Tổng</TableCell>
-                <TableCell />
-                <TableCell className="text-right">
-                  {formatVnd(totals.cash)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatVnd(totals.bank)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatVnd(totals.pending)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatVnd(totals.cash + totals.bank)}
-                </TableCell>
-                <TableCell colSpan={2} />
-              </TableRow>
-            </TableFooter>
-          </Table>
         </CardContent>
       </Card>
     </div>

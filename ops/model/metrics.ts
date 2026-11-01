@@ -34,7 +34,11 @@ export const filterDataset = (data: Dataset, filters: Filters): Dataset => {
     cashEntries: data.cashEntries.filter(keep),
     // Live snapshots (pending cards, stock, debts, fund summary): scope by branch/line only.
     pendingCards: data.pendingCards.filter(keepSnapshot),
-    cashbook: data.cashbook.filter(keep),
+    // Cashbook rows are cumulative balances: keep everything up to the period end so
+    // the opening balance (last row before the period) is still available.
+    cashbook: data.cashbook.filter(
+      (r) => keepSnapshot(r) && (!filters.to || r.date <= filters.to),
+    ),
     fundSummaries: data.fundSummaries.filter(keepSnapshot),
     inventory: data.inventory.filter(keepSnapshot),
     // The ledger is cumulative: keep every entry up to the period end so balances are right.

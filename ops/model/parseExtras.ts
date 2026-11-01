@@ -21,7 +21,18 @@ export const parseCashbook = (
     if (!date) continue;
     const pendingCell = table.get(row, "Tồn MPOS chờ về");
     if (pendingCell) pendingCardBalance = parseAmount(pendingCell);
+    const previous = byDate.get(date);
     byDate.set(date, {
+      cashIn:
+        (previous?.cashIn ?? 0) + parseAmount(table.get(row, "Thu tiền mặt")),
+      cashOut:
+        (previous?.cashOut ?? 0) + parseAmount(table.get(row, "Chi tiền mặt")),
+      bankIn:
+        (previous?.bankIn ?? 0) +
+        parseAmount(table.get(row, "Thu BIDV") || table.get(row, "Thu MB")),
+      bankOut:
+        (previous?.bankOut ?? 0) +
+        parseAmount(table.get(row, "Chi BIDV") || table.get(row, "Chi MB")),
       branch: source.branch,
       line: source.line,
       date,

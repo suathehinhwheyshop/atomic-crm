@@ -11,7 +11,7 @@ as the sheet formulas.
 |---|---|
 | Tổng quan | KPIs, per-branch table, revenue per day and channel, channel table, best sellers, staff, top alerts |
 | Hàng hóa | **Số lượng bán ra** (units sold per week / month and per product, by branch), **Tồn kho** (current stock per branch, proposed tab), **Danh mục sản phẩm** (catalog, aliases, unmatched names) |
-| Tài chính | **Doanh thu** (per week / month by branch, orders, revenue − operating expenses), **Chi phí** (monthly by branch, by group, supplier payments), **Tồn quỹ** (cash / bank balance over time from the Sổ quỹ tab, actual vs book), **Công nợ NCC** (supplier ledger per branch and supplier with ageing, proposed tab), **Báo cáo gộp** (monthly statement per branch) |
+| Tài chính | **Báo cáo gộp** (revenue per channel, result, cashbook opening / movements / closing, supplier debt opening / closing, money not yet in the cashbook, per branch), **Sổ quỹ** (opening / inflow / outflow / closing per fund and branch from the Sổ quỹ tab, actual vs book), **Công nợ NCC** (opening / purchases / payments / closing per branch, ledger per supplier with ageing, proposed tab), **Kênh bán** (revenue per channel and branch, payment methods, one channel per week / month, money not yet in the cashbook), **Doanh thu** (per week / month by branch), **Chi phí** (monthly by branch, by group, supplier payments) |
 | Vận hành | Đơn hàng, Khách hàng, Sổ quỹ & Chi phí, Ca & Nhân viên, Cần xử lý |
 
 Global filters: branch (HN, HCM, Vinh, ĐN), goods line (HCT / HXT / merged), period.
@@ -51,6 +51,7 @@ login and listens on 127.0.0.1 only: add authentication before exposing it.
 - `ops/model/parseWorkbook.ts`: tab rows to orders, platform orders, cash entries, pending card payments
 - `ops/model/metrics.ts`: filters, KPIs, channel / day / shift summaries, customers, alerts
 - `ops/model/reports.ts`: per-branch matrices (week / month), inventory, debt, fund balance, statement
+- `ops/model/finance.ts`: period summaries (fund opening / closing, debt opening / closing, channels per branch, money not yet in the cashbook)
 - `ops/model/parseExtras.ts`: Sổ quỹ running balances and the Tồn kho tab
 - `ops/model/catalog.ts`: product catalog parsing and name matching
 - `ops/model/supplierLedger.ts`: supplier ledger parsing, balances and ageing

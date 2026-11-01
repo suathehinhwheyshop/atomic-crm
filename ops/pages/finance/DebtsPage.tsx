@@ -23,7 +23,9 @@ import { formatCompact, formatDate, formatVnd } from "../../components/format";
 import { Kpi } from "../../components/Kpi";
 import { SourceNote } from "../../components/SourceNote";
 import { UnitLabel, unitLabel } from "../../components/UnitLabel";
+import { useReportScope } from "../../components/useReportScope";
 import { useScopedData } from "../../components/useScopedData";
+import { debtPeriods } from "../../model/finance";
 import { branchUnits, debtSummary } from "../../model/reports";
 import { KIND_LABELS, type SupplierBalance } from "../../model/supplierLedger";
 
@@ -121,6 +123,7 @@ const LedgerSheet = ({
 
 export const DebtsPage = () => {
   const { loaded, scoped } = useScopedData();
+  const { from, to } = useReportScope();
   const [selected, setSelected] = useState<SupplierBalance | null>(null);
   const summary = useMemo(
     () =>
@@ -128,6 +131,23 @@ export const DebtsPage = () => {
         ? debtSummary(scoped, branchUnits(scoped), loaded.today)
         : [],
     [scoped, loaded],
+  );
+  const periods = useMemo(
+    () =>
+      scoped && loaded
+        ? debtPeriods(scoped, branchUnits(scoped), from, to, loaded.today)
+        : [],
+    [scoped, loaded, from, to],
+  );
+  const periodTotal = periods.reduce(
+    (t, p) => ({
+      opening: t.opening + p.opening,
+      purchased: t.purchased + p.purchased,
+      paid: t.paid + p.paid,
+      closing: t.closing + p.closing,
+      overdue: t.overdue + p.overdue,
+    }),
+    { opening: 0, purchased: 0, paid: 0, closing: 0, overdue: 0 },
   );
   const balances = summary
     .flatMap((s) => s.balances)
@@ -175,7 +195,10 @@ export const DebtsPage = () => {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Tóm tắt công nợ từng chi nhánh</CardTitle>
+          <CardTitle>
+            Công nợ đầu kỳ – cuối kỳ từng chi nhánh ({formatDate(from)} →{" "}
+            {formatDate(to)})
+          </CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -184,14 +207,14 @@ export const DebtsPage = () => {
                 <TableHead>Chi nhánh</TableHead>
                 <TableHead className="text-right">Số NCC</TableHead>
                 <TableHead className="text-right">Nợ đầu kỳ</TableHead>
-                <TableHead className="text-right">Nhập hàng</TableHead>
-                <TableHead className="text-right">Đã trả</TableHead>
-                <TableHead className="text-right">Còn nợ</TableHead>
-                <TableHead className="text-right">Quá hạn</TableHead>
+                <TableHead className="text-right">Nhập trong kỳ</TableHead>
+                <TableHead className="text-right">Trả trong kỳ</TableHead>
+                <TableHead className="text-right">Nợ cuối kỳ</TableHead>
+                <TableHead className="text-right">Trong đó quá hạn</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {summary.map((s) => (
+              {periods.map((s) => (
                 <TableRow key={s.unit.key}>
                   <TableCell>
                     <UnitLabel unit={s.unit} />
@@ -207,7 +230,7 @@ export const DebtsPage = () => {
                     {formatVnd(s.paid)}
                   </TableCell>
                   <TableCell className="text-right font-semibold">
-                    {formatVnd(s.balance)}
+                    {formatVnd(s.closing)}
                   </TableCell>
                   <TableCell
                     className={
@@ -226,19 +249,19 @@ export const DebtsPage = () => {
                 <TableCell>Tổng</TableCell>
                 <TableCell />
                 <TableCell className="text-right">
-                  {formatVnd(total.opening)}
+                  {formatVnd(periodTotal.opening)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatVnd(total.purchased)}
+                  {formatVnd(periodTotal.purchased)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatVnd(total.paid)}
+                  {formatVnd(periodTotal.paid)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatVnd(total.balance)}
+                  {formatVnd(periodTotal.closing)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatVnd(total.overdue)}
+                  {formatVnd(periodTotal.overdue)}
                 </TableCell>
               </TableRow>
             </TableFooter>

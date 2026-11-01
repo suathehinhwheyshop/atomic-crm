@@ -15,6 +15,12 @@ import {
   parseCatalog,
   unmatchedNames,
 } from "./catalog";
+import {
+  channelsByUnit,
+  debtPeriods,
+  fundPeriods,
+  pendingMoney,
+} from "./finance";
 import { periodOf } from "./period";
 import { supplierBalances } from "./supplierLedger";
 import {
@@ -807,6 +813,54 @@ describe("branch reports on demo workbooks", () => {
       key: "2026-W43",
       label: "T43 · 19/10–25/10",
       start: "2026-10-19",
+    });
+  });
+});
+
+describe("finance period summaries", () => {
+  const data = applyCatalog(mergeDatasets(demoWorkbooks().map(parseWorkbook)));
+  const units = branchUnits(data);
+
+  it("fund opening + inflow − outflow equals closing for every unit and fund", () => {
+    fundPeriods(data, units, "2026-10-01", "2026-10-31").forEach((p) => {
+      expect(p.opening + p.inflow - p.outflow).toBeCloseTo(p.closing, 0);
+    });
+  });
+
+  it("fund opening of October equals the closing of September", () => {
+    const sept = fundPeriods(data, units, "2026-09-01", "2026-09-30");
+    const oct = fundPeriods(data, units, "2026-10-01", "2026-10-31");
+    oct.forEach((p) => {
+      const previous = sept.find(
+        (s) => s.unit.key === p.unit.key && s.fund === p.fund,
+      );
+      expect(p.opening).toBe(previous?.closing);
+    });
+  });
+
+  it("debt opening + purchased − paid equals closing", () => {
+    debtPeriods(data, units, "2026-10-01", "2026-10-31", "2026-10-31").forEach(
+      (d) => {
+        expect(d.opening + d.purchased - d.paid).toBeCloseTo(d.closing, 0);
+        expect(d.overdue).toBeLessThanOrEqual(d.closing);
+      },
+    );
+  });
+
+  it("channel revenue per unit sums to the unit revenue", () => {
+    const statement = financialStatement(data, units);
+    channelsByUnit(data, units).forEach((row) => {
+      expect(row.total).toBe(
+        statement.find((s) => s.unit.key === row.unit.key)?.revenue,
+      );
+    });
+  });
+
+  it("pending money never goes negative", () => {
+    pendingMoney(data, units).forEach((p) => {
+      Object.entries(p)
+        .filter(([k]) => k !== "unit")
+        .forEach(([, v]) => expect(v as number).toBeGreaterThanOrEqual(0));
     });
   });
 });

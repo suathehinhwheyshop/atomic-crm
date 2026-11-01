@@ -5,72 +5,221 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 
-import { formatVnd } from "../../components/format";
+import { formatDate, formatVnd } from "../../components/format";
 import { SourceNote } from "../../components/SourceNote";
 import { UnitLabel } from "../../components/UnitLabel";
-import { useScopedData } from "../../components/useScopedData";
+import { useReportScope } from "../../components/useReportScope";
 import {
-  branchUnits,
-  financialStatement,
-  type StatementRow,
-} from "../../model/reports";
+  CHANNEL_ORDER,
+  channelsByUnit,
+  debtPeriods,
+  fundPeriods,
+  pendingMoney,
+} from "../../model/finance";
+import { CHANNEL_LABELS } from "../../model/parseWorkbook";
+import { financialStatement, type BranchUnit } from "../../model/reports";
 
 type Line = {
   label: string;
-  value: (r: StatementRow) => number;
+  values: Map<string, number>;
   strong?: boolean;
   muted?: boolean;
   note?: string;
+  count?: boolean;
 };
+type Section = { title: string; lines: Line[] };
 
-const LINES: Line[] = [
-  { label: "Doanh thu", value: (r) => r.revenue, strong: true },
-  { label: "Số đơn tính doanh thu", value: (r) => r.orders, muted: true },
-  {
-    label: "Giá vốn hàng bán",
-    value: (r) => r.costOfGoods,
-    note: "theo Danh mục sản phẩm",
-  },
-  { label: "Lợi nhuận gộp", value: (r) => r.grossProfit, strong: true },
-  { label: "Chi phí vận hành", value: (r) => r.expenses },
-  {
-    label: "Lợi nhuận sau chi phí vận hành",
-    value: (r) => r.operatingResult,
-    strong: true,
-  },
-  { label: "Đã trả nhà cung cấp trong kỳ", value: (r) => r.supplierPayments },
-  {
-    label: "Còn nợ nhà cung cấp",
-    value: (r) => r.debtBalance,
-    note: "tab đề xuất",
-  },
-  { label: "Tồn tiền mặt cuối kỳ", value: (r) => r.cash },
-  { label: "Tồn ngân hàng cuối kỳ", value: (r) => r.bank },
-  { label: "MPOS chờ về", value: (r) => r.pendingCard, muted: true },
-  { label: "Tổng tồn quỹ", value: (r) => r.cash + r.bank, strong: true },
-];
+const byUnit = <T extends { unit: BranchUnit }>(
+  rows: T[],
+  value: (r: T) => number,
+) => new Map(rows.map((r) => [r.unit.key, value(r)]));
 
 export const StatementPage = () => {
-  const { scoped } = useScopedData();
-  const rows = useMemo(
-    () => (scoped ? financialStatement(scoped, branchUnits(scoped)) : []),
-    [scoped],
-  );
-  const fmt = (line: Line, v: number) =>
-    line.label.startsWith("Số đơn") ? v.toLocaleString("vi-VN") : formatVnd(v);
+  const { scoped, units, from, to, today } = useReportScope();
+  const sections = useMemo((): Section[] => {
+    if (!scoped) return [];
+    const statement = financialStatement(scoped, units);
+    const channels = channelsByUnit(scoped, units);
+    const funds = fundPeriods(scoped, units, from, to);
+    const debts = debtPeriods(scoped, units, from, to, today);
+    const pending = pendingMoney(scoped, units);
+    const hasCost = statement.some((r) => r.costCoverage > 0);
+    const fund = (
+      kind: "cash" | "bank",
+      pick: (f: (typeof funds)[number]) => number,
+    ) =>
+      byUnit(
+        funds.filter((f) => f.fund === kind),
+        pick,
+      );
+    const sumFunds = (pick: (f: (typeof funds)[number]) => number) =>
+      new Map(
+        units.map((u) => [
+          u.key,
+          funds
+            .filter((f) => f.unit.key === u.key)
+            .reduce((t, f) => t + pick(f), 0),
+        ]),
+      );
+    return [
+      {
+        title: "A. Doanh thu theo kênh",
+        lines: [
+          ...CHANNEL_ORDER.map((c) => ({
+            label: CHANNEL_LABELS[c],
+            values: byUnit(
+              channels,
+              (r) => r.channels.find((x) => x.channel === c)?.revenue ?? 0,
+            ),
+          })),
+          {
+            label: "Tổng doanh thu",
+            values: byUnit(statement, (r) => r.revenue),
+            strong: true,
+          },
+          {
+            label: "Số đơn tính doanh thu",
+            values: byUnit(statement, (r) => r.orders),
+            muted: true,
+            count: true,
+          },
+        ],
+      },
+      {
+        title: "B. Kết quả kinh doanh",
+        lines: [
+          ...(hasCost
+            ? [
+                {
+                  label: "Giá vốn hàng bán",
+                  values: byUnit(statement, (r) => r.costOfGoods),
+                  note: "theo Danh mục sản phẩm",
+                },
+                {
+                  label: "Lợi nhuận gộp",
+                  values: byUnit(statement, (r) => r.grossProfit),
+                  strong: true,
+                },
+              ]
+            : [
+                {
+                  label: "Giá vốn hàng bán",
+                  values: new Map(),
+                  note: "[CHƯA CÓ SỐ] – cần Danh mục sản phẩm có giá vốn",
+                  muted: true,
+                },
+              ]),
+          {
+            label: "Chi phí vận hành (Bảng Chi phí)",
+            values: byUnit(statement, (r) => r.expenses),
+          },
+          {
+            label: hasCost
+              ? "Lợi nhuận sau chi phí vận hành"
+              : "Doanh thu − Chi phí vận hành",
+            values: byUnit(statement, (r) =>
+              hasCost ? r.operatingResult : r.revenue - r.expenses,
+            ),
+            strong: true,
+            note: hasCost ? undefined : "chưa trừ giá vốn",
+          },
+        ],
+      },
+      {
+        title: `C. Sổ quỹ (${formatDate(from)} → ${formatDate(to)})`,
+        lines: [
+          { label: "Tiền mặt đầu kỳ", values: fund("cash", (f) => f.opening) },
+          { label: "Ngân hàng đầu kỳ", values: fund("bank", (f) => f.opening) },
+          { label: "Tổng thu trong kỳ", values: sumFunds((f) => f.inflow) },
+          { label: "Tổng chi trong kỳ", values: sumFunds((f) => f.outflow) },
+          { label: "Tiền mặt cuối kỳ", values: fund("cash", (f) => f.closing) },
+          {
+            label: "Ngân hàng cuối kỳ",
+            values: fund("bank", (f) => f.closing),
+          },
+          {
+            label: "Tổng tồn quỹ cuối kỳ",
+            values: sumFunds((f) => f.closing),
+            strong: true,
+          },
+          {
+            label: "MPOS chờ về (chưa vào ngân hàng)",
+            values: byUnit(pending, (p) => p.pendingCards),
+            muted: true,
+          },
+        ],
+      },
+      {
+        title: "D. Công nợ nhà cung cấp",
+        lines: [
+          { label: "Nợ đầu kỳ", values: byUnit(debts, (d) => d.opening) },
+          {
+            label: "Nhập hàng trong kỳ",
+            values: byUnit(debts, (d) => d.purchased),
+          },
+          { label: "Đã trả trong kỳ", values: byUnit(debts, (d) => d.paid) },
+          {
+            label: "Nợ cuối kỳ",
+            values: byUnit(debts, (d) => d.closing),
+            strong: true,
+          },
+          {
+            label: "Trong đó quá hạn",
+            values: byUnit(debts, (d) => d.overdue),
+            muted: true,
+          },
+        ],
+      },
+      {
+        title: "E. Tiền chưa vào Sổ quỹ",
+        lines: [
+          {
+            label: "Nội thành đã giao chưa thu",
+            values: byUnit(pending, (p) => p.localUnpaid),
+          },
+          {
+            label: "Bưu điện đang giao",
+            values: byUnit(pending, (p) => p.postNotDelivered),
+          },
+          {
+            label: "COD đã thu hộ chưa về sổ",
+            values: byUnit(pending, (p) => p.codCollected),
+          },
+          {
+            label: "Tiền sàn chưa rút",
+            values: byUnit(pending, (p) => p.platformNet),
+          },
+          {
+            label: "Đơn lỗi kiểm tra (chưa vào sổ)",
+            values: byUnit(pending, (p) => p.orderIssues),
+            muted: true,
+          },
+        ],
+      },
+    ];
+  }, [scoped, units, from, to, today]);
+  if (!scoped) return null;
+  const cell = (line: Line, v: number | undefined) =>
+    v == null ? "–" : line.count ? v.toLocaleString("vi-VN") : formatVnd(v);
+  const total = (line: Line) =>
+    line.values.size
+      ? [...line.values.values()].reduce((t, v) => t + v, 0)
+      : undefined;
+  const cls = (line: Line) =>
+    line.strong ? "font-semibold" : line.muted ? "text-muted-foreground" : "";
 
   return (
     <div className="space-y-4">
       <SourceNote>
-        Báo cáo gộp cho kỳ đang chọn (mặc định tháng này). Doanh thu và chi phí
-        cộng trong kỳ; công nợ và tồn quỹ là số tại thời điểm cuối kỳ. Chọn kỳ
-        khác ở thanh lọc phía trên để xem tháng trước.
+        Báo cáo gộp cho kỳ đang chọn (mặc định tháng này; chọn "Tháng trước" ở
+        thanh lọc để xem tháng trước). Doanh thu và chi phí cộng trong kỳ; sổ
+        quỹ và công nợ có số đầu kỳ, phát sinh, cuối kỳ. Công nợ NCC lấy từ tab
+        đề xuất, hiện là demo.
       </SourceNote>
       <Card>
         <CardHeader>
@@ -80,65 +229,55 @@ export const StatementPage = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Chỉ tiêu</TableHead>
-                {rows.map((r) => (
-                  <TableHead key={r.unit.key} className="text-right">
-                    <UnitLabel unit={r.unit} />
+                <TableHead className="w-72">Chỉ tiêu</TableHead>
+                {units.map((u) => (
+                  <TableHead key={u.key} className="text-right">
+                    <UnitLabel unit={u} />
                   </TableHead>
                 ))}
                 <TableHead className="text-right">Toàn hệ thống</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {LINES.map((line) => (
-                <TableRow key={line.label}>
-                  <TableCell
-                    className={
-                      line.strong
-                        ? "font-semibold"
-                        : line.muted
-                          ? "text-muted-foreground"
-                          : ""
-                    }
+              {sections.map((section) => (
+                <>
+                  <TableRow
+                    key={section.title}
+                    className="bg-muted/50 hover:bg-muted/50"
                   >
-                    {line.label}
-                    {line.note ? (
-                      <span className="ml-2 text-xs font-normal text-muted-foreground">
-                        {line.note}
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  {rows.map((r) => (
                     <TableCell
-                      key={r.unit.key}
-                      className={`text-right ${line.strong ? "font-semibold" : line.muted ? "text-muted-foreground" : ""}`}
+                      colSpan={units.length + 2}
+                      className="font-semibold"
                     >
-                      {fmt(line, line.value(r))}
+                      {section.title}
                     </TableCell>
+                  </TableRow>
+                  {section.lines.map((line) => (
+                    <TableRow key={`${section.title}-${line.label}`}>
+                      <TableCell className={cls(line)}>
+                        {line.label}
+                        {line.note ? (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            {line.note}
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      {units.map((u) => (
+                        <TableCell
+                          key={u.key}
+                          className={`text-right ${cls(line)}`}
+                        >
+                          {cell(line, line.values.get(u.key))}
+                        </TableCell>
+                      ))}
+                      <TableCell className={`text-right ${cls(line)}`}>
+                        {cell(line, total(line))}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                  <TableCell
-                    className={`text-right ${line.strong ? "font-semibold" : line.muted ? "text-muted-foreground" : ""}`}
-                  >
-                    {fmt(
-                      line,
-                      rows.reduce((t, r) => t + line.value(r), 0),
-                    )}
-                  </TableCell>
-                </TableRow>
+                </>
               ))}
             </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell
-                  colSpan={rows.length + 2}
-                  className="text-xs font-normal text-muted-foreground"
-                >
-                  Giá vốn = số lượng bán × giá vốn trong Danh mục sản phẩm. Đơn
-                  sàn và tên chưa quy chuẩn chưa có giá vốn (xem tỷ lệ khớp ở
-                  Hàng hóa › Danh mục sản phẩm).
-                </TableCell>
-              </TableRow>
-            </TableFooter>
           </Table>
         </CardContent>
       </Card>

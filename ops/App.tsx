@@ -22,6 +22,7 @@ import { buildAlerts } from "./model/metrics";
 import { AlertsPage } from "./pages/AlertsPage";
 import { CashbookPage } from "./pages/CashbookPage";
 import { CustomersPage } from "./pages/CustomersPage";
+import { ChannelsPage } from "./pages/finance/ChannelsPage";
 import { DebtsPage } from "./pages/finance/DebtsPage";
 import { ExpensesPage } from "./pages/finance/ExpensesPage";
 import { FundsPage } from "./pages/finance/FundsPage";
@@ -38,9 +39,9 @@ const queryClient = new QueryClient();
 
 const SECTIONS = [
   { to: "/", label: "Tổng quan", icon: BarChart3 },
-  { to: "/goods", label: "Hàng hóa", icon: Package },
   { to: "/finance", label: "Tài chính", icon: Landmark },
-  { to: "/ops", label: "Vận hành", icon: Workflow },
+  { to: "/ops", label: "Kênh bán & Vận hành", icon: Workflow },
+  { to: "/goods", label: "Hàng hóa", icon: Package },
 ];
 
 const GOODS_TABS = [
@@ -49,11 +50,12 @@ const GOODS_TABS = [
   { to: "/goods/catalog", label: "Danh mục sản phẩm" },
 ];
 const FINANCE_TABS = [
+  { to: "/finance/statement", label: "Báo cáo gộp" },
+  { to: "/finance/funds", label: "Sổ quỹ" },
+  { to: "/finance/debts", label: "Công nợ NCC" },
+  { to: "/finance/channels", label: "Kênh bán" },
   { to: "/finance/revenue", label: "Doanh thu" },
   { to: "/finance/expenses", label: "Chi phí" },
-  { to: "/finance/funds", label: "Tồn quỹ" },
-  { to: "/finance/debts", label: "Công nợ NCC" },
-  { to: "/finance/statement", label: "Báo cáo gộp" },
 ];
 const OPS_TABS = [
   { to: "/ops/orders", label: "Đơn hàng" },
@@ -164,7 +166,12 @@ const Shell = () => {
             <Route path="/" element={<OverviewPage />} />
             <Route
               path="/goods"
-              element={<SectionTabs title="Hàng hóa" tabs={GOODS_TABS} />}
+              element={
+                <SectionTabs
+                  title="Hàng hóa (chờ Danh mục sản phẩm)"
+                  tabs={GOODS_TABS}
+                />
+              }
             >
               <Route index element={<Navigate to="/goods/volume" replace />} />
               <Route path="volume" element={<VolumePage />} />
@@ -177,8 +184,9 @@ const Shell = () => {
             >
               <Route
                 index
-                element={<Navigate to="/finance/revenue" replace />}
+                element={<Navigate to="/finance/statement" replace />}
               />
+              <Route path="channels" element={<ChannelsPage />} />
               <Route path="revenue" element={<RevenuePage />} />
               <Route path="expenses" element={<ExpensesPage />} />
               <Route path="funds" element={<FundsPage />} />
@@ -187,7 +195,9 @@ const Shell = () => {
             </Route>
             <Route
               path="/ops"
-              element={<SectionTabs title="Vận hành" tabs={OPS_TABS} />}
+              element={
+                <SectionTabs title="Kênh bán & Vận hành" tabs={OPS_TABS} />
+              }
             >
               <Route index element={<Navigate to="/ops/orders" replace />} />
               <Route path="orders" element={<OrdersPage />} />

@@ -93,6 +93,10 @@ export type CashbookRow = {
   branch: BranchCode;
   line: GoodsLine;
   date: string;
+  cashIn: number;
+  cashOut: number;
+  bankIn: number;
+  bankOut: number;
   cashBalance: number;
   bankBalance: number;
   pendingCardBalance: number;
