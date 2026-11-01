@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-prototype
+dist-ops
+.git
+.harness
+supabase/.temp
+service-account*.json
+*-credentials.json
+ops-sources.json
+doc
+docs
+e2e
+test-data

@@ -7,7 +7,10 @@
 //
 // ops-sources.json (gitignored) lists the spreadsheets, see ops/sources.example.json.
 // Each spreadsheet must be shared (Viewer) with the service account email.
-// The server listens on 127.0.0.1 only: it has NO login, so never expose it publicly.
+// Locally the server listens on 127.0.0.1 only: it has NO login of its own.
+// In production run it behind Identity-Aware Proxy on Cloud Run (see docs/ops/DEPLOY.md):
+// HOST=0.0.0.0, PORT from the platform, the key file mounted from Secret Manager and the
+// sources given inline through OPS_SOURCES_JSON.
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -52,13 +55,21 @@ const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 const sourcesPath = process.env.OPS_SOURCES ?? "ops-sources.json";
 if (!keyPath)
   fail("set GOOGLE_APPLICATION_CREDENTIALS to the service account key file");
-if (!existsSync(sourcesPath))
+if (!process.env.OPS_SOURCES_JSON && !existsSync(sourcesPath))
   fail(
-    `sources file not found: ${sourcesPath} (copy ops/sources.example.json)`,
+    `sources file not found: ${sourcesPath} (copy ops/sources.example.json or set OPS_SOURCES_JSON)`,
   );
 
 const getToken = createTokenProvider(JSON.parse(readFileSync(keyPath, "utf8")));
-const sources = JSON.parse(readFileSync(sourcesPath, "utf8"));
+const sources = JSON.parse(
+  process.env.OPS_SOURCES_JSON ?? readFileSync(sourcesPath, "utf8"),
+);
+if (
+  !Array.isArray(sources) ||
+  !sources.every((s) => s.branch && s.line && s.spreadsheetId)
+) {
+  fail("sources must be an array of { branch, line, spreadsheetId }");
+}
 
 const fetchWorkbook = async ({ branch, line, spreadsheetId }) => {
   const token = await getToken();
@@ -107,6 +118,8 @@ const serveStatic = (urlPath, response) => {
 };
 
 const SECURITY_HEADERS = {
+  // Cloud Run terminates TLS; HSTS is harmless on plain localhost.
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -118,6 +131,10 @@ createServer(async (request, response) => {
     response.setHeader(name, value),
   );
   const url = new URL(request.url ?? "/", "http://localhost");
+  if (url.pathname === "/healthz") {
+    response.writeHead(200, { "Content-Type": "text/plain" }).end("ok");
+    return;
+  }
   if (url.pathname.endsWith("/api/workbooks")) {
     try {
       const body = await loadWorkbooks();

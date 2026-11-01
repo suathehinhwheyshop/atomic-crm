@@ -1,0 +1,20 @@
+# WheyShop ops dashboard: static build + the Sheets-reading server, for Cloud Run.
+# Build:  docker build -f Dockerfile.ops -t wheyshop-ops .
+# Run:    docker run -p 8080:8080 -e OPS_SOURCES_JSON='[...]' \
+#           -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/sa.json -v $PWD/service-account.json:/secrets/sa.json:ro wheyshop-ops
+FROM node:22-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --ignore-scripts
+COPY . .
+RUN npx vite build --config vite.ops.config.ts
+
+FROM node:22-slim
+WORKDIR /app
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 OPS_STATIC_DIR=/app/dist-ops
+COPY --from=build /app/dist-ops ./dist-ops
+COPY scripts/ops-server.mjs ./scripts/ops-server.mjs
+COPY scripts/sheets/googleAuth.mjs ./scripts/sheets/googleAuth.mjs
+USER node
+EXPOSE 8080
+CMD ["node", "scripts/ops-server.mjs"]
