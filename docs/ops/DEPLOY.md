@@ -43,6 +43,10 @@ with your e-mail as a test user.
 
 ## 4. Deploy
 
+Shortcut: `scripts/deploy-cloud-run.sh` runs steps 1, 2 and 4 from the variables
+`PROJECT`, `GOOGLE_CLIENT_ID`, `ALLOWED_EMAILS`, `OPS_SOURCES_JSON` and `KEY_FILE`
+(first time only). The manual commands are kept below.
+
 ```bash
 git clone https://github.com/<owner>/atomic-crm.git && cd atomic-crm
 git checkout <branch>
