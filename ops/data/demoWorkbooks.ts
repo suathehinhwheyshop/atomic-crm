@@ -613,7 +613,7 @@ const buildWorkbook = ({
         date,
         "Chi",
         "CÔNG NỢ NCC",
-        `Trả ${pick(SUPPLIERS)} (demo)`,
+        `Trả tiền hàng ${SUPPLIERS[day.getDate() === 5 ? 0 : 1]}`,
         vnAmount(amount),
         bankName,
         "",
@@ -679,19 +679,6 @@ const buildWorkbook = ({
         vnDate(format(addDays(parseISO(purchaseDay), 30), "yyyy-MM-dd")),
         "",
       ]);
-      const payDay = `2026-${String(month).padStart(2, "0")}-${month === 10 && i >= 2 ? "28" : "20"}`;
-      if (!(month === 10 && i === 1)) {
-        ledger.push([
-          vnDate(payDay),
-          supplier,
-          "Trả tiền",
-          `CP-${month}${i}`,
-          "Chuyển khoản trả NCC (demo)",
-          vnAmount(Math.round(amount * (0.6 + random() * 0.5))),
-          "",
-          "",
-        ]);
-      }
     }
   });
   const catalogRows = catalog.map(([code, name, , cost, aliases]) => [

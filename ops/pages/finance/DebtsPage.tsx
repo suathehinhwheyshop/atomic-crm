@@ -167,13 +167,14 @@ export const DebtsPage = () => {
 
   return (
     <div className="space-y-4">
-      <SourceNote proposed>
-        Đề xuất tab <strong>Công nợ NCC</strong> ghi từng phát sinh, 1 dòng 1
-        việc: Ngày | Nhà cung cấp | Loại (Nợ đầu kỳ / Nhập hàng / Trả tiền) | Số
-        phiếu | Diễn giải | Số tiền | Hạn thanh toán | Ghi chú. App tự tính còn
-        nợ, trừ tiền trả vào khoản cũ nhất trước, và báo quá hạn theo hạn của
-        từng lần nhập. Dòng "Trả tiền" đối chiếu được với nhóm CÔNG NỢ NCC ở
-        Bảng Chi phí.
+      <SourceNote>
+        <strong>Đã trả</strong> lấy từ Bảng Chi phí, nhóm CÔNG NỢ NCC, dòng Kiểm
+        tra OK; tên nhà cung cấp là tên ghi ở cột Diễn giải (ví dụ "Trả tiền
+        hàng Ostrovit tháng 10" → Ostrovit), nên cần ghi tên NCC thống nhất.
+        <strong> Nợ đầu kỳ và nhập hàng</strong> lấy từ tab "Công nợ NCC" nếu có
+        (Ngày | Nhà cung cấp | Loại: Nợ đầu kỳ / Nhập hàng | Số phiếu | Diễn
+        giải | Số tiền | Hạn thanh toán); chưa có tab này thì bảng chỉ có cột đã
+        trả và số còn nợ hiện âm (= đã trả mà chưa ghi nhập hàng).
       </SourceNote>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi

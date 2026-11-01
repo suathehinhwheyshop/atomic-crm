@@ -4,7 +4,7 @@ import {
   parseFundSummaries,
   parseInventory,
 } from "./parseExtras";
-import { parseSupplierLedger } from "./supplierLedger";
+import { ledgerFromCashEntries, parseSupplierLedger } from "./supplierLedger";
 import { parseAmount, parseDate, readTable, type Table } from "./sheet";
 import type {
   CashEntry,
@@ -242,6 +242,7 @@ export const parseWorkbook = (source: WorkbookSource): Dataset => {
     ["store", TAB_PREFIX.store],
     ["local", TAB_PREFIX.local],
   ];
+  const cashEntries = parseCashEntries(source, table(TAB_PREFIX.expenses));
   return {
     orders: [
       ...channels.flatMap(([channel, prefix]) =>
@@ -253,7 +254,7 @@ export const parseWorkbook = (source: WorkbookSource): Dataset => {
       ...parsePlatformOrders(source, "tiktok", table(TAB_PREFIX.tiktok)),
       ...parsePlatformOrders(source, "shopee", table(TAB_PREFIX.shopee)),
     ],
-    cashEntries: parseCashEntries(source, table(TAB_PREFIX.expenses)),
+    cashEntries,
     pendingCards: parsePendingCards(
       source,
       findTab(source, TAB_PREFIX.pendingCards),
@@ -264,10 +265,13 @@ export const parseWorkbook = (source: WorkbookSource): Dataset => {
       findTab(source, TAB_PREFIX.cashbook),
     ),
     inventory: parseInventory(source, findTab(source, TAB_PREFIX.inventory)),
-    supplierLedger: parseSupplierLedger(
-      source,
-      findTab(source, TAB_PREFIX.supplierDebts),
-    ),
+    supplierLedger: [
+      ...parseSupplierLedger(
+        source,
+        findTab(source, TAB_PREFIX.supplierDebts),
+      ).filter((e) => e.kind !== "payment"),
+      ...ledgerFromCashEntries(cashEntries),
+    ],
     catalog: parseCatalog(findCatalogTab(source)),
   };
 };

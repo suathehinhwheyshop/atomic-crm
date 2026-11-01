@@ -1,7 +1,7 @@
 // Supplier ledger ("Công nợ NCC" tab): one line per event (opening balance,
 // purchase, payment). Balances, ageing and overdue amounts are computed here.
 import { parseAmount, parseDate, readTable } from "./sheet";
-import type { BranchCode, GoodsLine, WorkbookSource } from "./types";
+import type { BranchCode, CashEntry, GoodsLine, WorkbookSource } from "./types";
 
 export type LedgerKind = "opening" | "purchase" | "payment";
 
@@ -59,6 +59,46 @@ export const parseSupplierLedger = (
     ];
   });
 };
+
+const PAYMENT_GROUP = "CÔNG NỢ NCC";
+const LEADING_WORDS =
+  /^(trả|thanh toán|tt|ck|chuyển khoản|tiền hàng|công nợ|nợ|cho)\s+/i;
+
+/** "Trả tiền hàng NCC Ostrovit tháng 10" -> "Ostrovit tháng 10" is too long; keep the leading name part up to a date/number. */
+export const supplierFromDescription = (description: string): string => {
+  let text = description.trim();
+  for (let i = 0; i < 4; i++) text = text.replace(LEADING_WORDS, "");
+  text = text.split(/\s+(tháng|t\d|đợt|lần|\d{1,2}\/\d{1,2})\b/i)[0];
+  return text.replace(/[-–:,.]+$/, "").trim() || "(không ghi tên NCC)";
+};
+
+/**
+ * Payments to suppliers come from Bảng Chi phí (group CÔNG NỢ NCC, check OK):
+ * the supplier is the name written in Diễn giải. Opening balances and purchases
+ * come from the Công nợ NCC tab when it exists; "Trả tiền" rows there are ignored
+ * so payments are never counted twice.
+ */
+export const ledgerFromCashEntries = (entries: CashEntry[]): SupplierEntry[] =>
+  entries
+    .filter(
+      (e) =>
+        e.kind === "Chi" &&
+        e.group === PAYMENT_GROUP &&
+        e.check.startsWith("OK"),
+    )
+    .map((e) => ({
+      key: `${e.key}-ncc`,
+      branch: e.branch,
+      line: e.line,
+      date: e.date,
+      supplier: supplierFromDescription(e.description),
+      kind: "payment" as const,
+      ref: e.voucher,
+      description: e.description,
+      amount: e.amount,
+      dueDate: "",
+      note: "Bảng Chi phí",
+    }));
 
 export type SupplierBalance = {
   supplier: string;
@@ -126,7 +166,8 @@ export const supplierBalances = (
           .filter((e) => e.kind === "purchase")
           .reduce((t, e) => t + e.amount, 0),
         paid,
-        balance: open.reduce((t, d) => t + d.left, 0),
+        // Overpayments show as a negative balance (the supplier owes us).
+        balance: debts.reduce((t, d) => t + d.amount, 0) - paid,
         notDue: bucket((d) => age(d) <= 0),
         overdue30: bucket((d) => age(d) > 0 && age(d) <= 30),
         overdue90: bucket((d) => age(d) > 30),

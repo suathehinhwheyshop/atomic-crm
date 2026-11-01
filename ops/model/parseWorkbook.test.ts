@@ -22,7 +22,7 @@ import {
   pendingMoney,
 } from "./finance";
 import { periodOf } from "./period";
-import { supplierBalances } from "./supplierLedger";
+import { supplierBalances, supplierFromDescription } from "./supplierLedger";
 import {
   branchUnits,
   financialStatement,
@@ -583,6 +583,51 @@ describe("Sổ quỹ, Tồn kho and Công nợ tabs", () => {
           ],
           ["20/10/2026", "NCC A", "Sai loại", "", "", "1.000", "", ""],
         ],
+        "Bảng Chi phí": [
+          ["BẢNG CHI PHÍ"],
+          [
+            "Ngày",
+            "Loại",
+            "Nhóm",
+            "Diễn giải",
+            "Số tiền",
+            "Quỹ",
+            "Quỹ nhận",
+            "Kiểm tra",
+            "Người chi",
+            "Chứng từ",
+            "Ghi chú",
+            "Mã CT",
+          ],
+          [
+            "20/10/2026",
+            "Chi",
+            "CÔNG NỢ NCC",
+            "Trả tiền hàng NCC A tháng 10",
+            "8.000.000",
+            "BIDV",
+            "",
+            "OK",
+            "KT",
+            "",
+            "",
+            "CP-0009",
+          ],
+          [
+            "21/10/2026",
+            "Chi",
+            "CÔNG NỢ NCC",
+            "Thanh toán NCC B",
+            "1.000.000",
+            "BIDV",
+            "",
+            "Thiếu Quỹ",
+            "KT",
+            "",
+            "",
+            "CP-0010",
+          ],
+        ],
       }),
     );
 
@@ -593,11 +638,25 @@ describe("Sổ quỹ, Tồn kho and Công nợ tabs", () => {
       minimum: 5,
       updatedAt: "2026-10-31",
     });
-    expect(supplierLedger.map((e) => [e.kind, e.amount])).toEqual([
-      ["opening", 10_000_000],
-      ["purchase", 5_000_000],
-      ["payment", 8_000_000],
+    // Payments come from Bảng Chi phí only (the tab's "Trả tiền" row is ignored).
+    expect(supplierLedger.map((e) => [e.kind, e.supplier, e.amount])).toEqual([
+      ["opening", "NCC A", 10_000_000],
+      ["purchase", "NCC A", 5_000_000],
+      ["payment", "NCC A", 8_000_000],
     ]);
+  });
+});
+
+describe("supplier name from Bảng Chi phí description", () => {
+  it("strips payment verbs and trailing period words", () => {
+    expect(supplierFromDescription("Trả tiền hàng NCC A tháng 10")).toBe(
+      "NCC A",
+    );
+    expect(supplierFromDescription("Thanh toán Ostrovit đợt 2")).toBe(
+      "Ostrovit",
+    );
+    expect(supplierFromDescription("CK Labrada 15/10")).toBe("Labrada");
+    expect(supplierFromDescription("")).toBe("(không ghi tên NCC)");
   });
 });
 
