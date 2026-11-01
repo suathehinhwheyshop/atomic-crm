@@ -62,3 +62,5 @@ dist-prototype/
 # Google service account keys (never commit)
 service-account*.json
 *-credentials.json
+dist-ops/
+ops-sources.json

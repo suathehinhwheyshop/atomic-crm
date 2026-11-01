@@ -33,5 +33,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "demo", "prototype", "vitest-browser.d.ts"]
+  "include": ["src", "demo", "prototype", "ops", "vitest-browser.d.ts"]
 }
