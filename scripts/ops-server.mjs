@@ -15,11 +15,18 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 
+import {
+  createSessions,
+  csrfMatches,
+  loginPage,
+  readBody,
+  verifyGoogleIdToken,
+} from "./ops-auth.mjs";
 import { createTokenProvider, googleGet } from "./sheets/googleAuth.mjs";
 
 const PORT = Number(process.env.PORT ?? 4300);
 const HOST = process.env.HOST ?? "127.0.0.1";
-const CACHE_MS = Number(process.env.OPS_CACHE_SECONDS ?? 30) * 1000;
+const CACHE_MS = Number(process.env.OPS_CACHE_SECONDS ?? 300) * 1000;
 const STATIC_DIR = path.resolve(process.env.OPS_STATIC_DIR ?? "dist-ops");
 // Only the input tabs are needed: the dashboard recomputes totals itself.
 const TAB_PREFIXES = [
@@ -50,6 +57,18 @@ const fail = (message) => {
   console.error(`ops-server: ${message}`);
   process.exit(1);
 };
+
+// Login is on when GOOGLE_CLIENT_ID is set; ALLOWED_EMAILS lists who may enter.
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
+const sessions = createSessions({
+  secret: process.env.SESSION_SECRET,
+  allowedEmails: (process.env.ALLOWED_EMAILS ?? "").split(","),
+});
+if (CLIENT_ID && !(process.env.ALLOWED_EMAILS ?? "").trim()) {
+  fail(
+    "ALLOWED_EMAILS must list at least one e-mail when GOOGLE_CLIENT_ID is set",
+  );
+}
 
 const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 const sourcesPath = process.env.OPS_SOURCES ?? "ops-sources.json";
@@ -135,6 +154,66 @@ createServer(async (request, response) => {
     response.writeHead(200, { "Content-Type": "text/plain" }).end("ok");
     return;
   }
+  if (CLIENT_ID) {
+    const secure = request.headers["x-forwarded-proto"] === "https";
+    const html = (code, body) => {
+      response.writeHead(code, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(body);
+    };
+    if (url.pathname === "/auth/login" && request.method === "POST") {
+      const body = new URLSearchParams(await readBody(request));
+      if (!csrfMatches(request, body))
+        return html(
+          400,
+          loginPage(CLIENT_ID, "Phiên đăng nhập không hợp lệ, thử lại."),
+        );
+      const email = await verifyGoogleIdToken(
+        body.get("credential") ?? "",
+        CLIENT_ID,
+      ).catch(() => null);
+      if (!email)
+        return html(
+          401,
+          loginPage(CLIENT_ID, "Không xác minh được tài khoản Google."),
+        );
+      if (!sessions.isAllowed(email))
+        return html(
+          403,
+          loginPage(CLIENT_ID, `${email} chưa được cấp quyền xem.`),
+        );
+      response.writeHead(303, {
+        "Set-Cookie": sessions.cookie(sessions.issue(email), secure),
+        Location: "/",
+      });
+      response.end();
+      return;
+    }
+    if (url.pathname === "/auth/logout") {
+      response.writeHead(303, {
+        "Set-Cookie": sessions.cookie("", secure),
+        Location: "/login",
+      });
+      response.end();
+      return;
+    }
+    const user = sessions.userOf(request);
+    if (url.pathname === "/login") {
+      if (!user) return html(200, loginPage(CLIENT_ID));
+      response.writeHead(303, { Location: "/" });
+      response.end();
+      return;
+    }
+    if (!user) {
+      if (url.pathname.endsWith("/api/workbooks")) {
+        response.writeHead(401, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ error: "login required" }));
+        return;
+      }
+      response.writeHead(303, { Location: "/login" });
+      response.end();
+      return;
+    }
+  }
   if (url.pathname.endsWith("/api/workbooks")) {
     try {
       const body = await loadWorkbooks();
@@ -153,6 +232,6 @@ createServer(async (request, response) => {
   serveStatic(url.pathname, response);
 }).listen(PORT, HOST, () => {
   console.warn(
-    `ops-server: http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT} (${sources.length} spreadsheets, cache ${CACHE_MS / 1000}s)`,
+    `ops-server: http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT} (${sources.length} spreadsheets, cache ${CACHE_MS / 1000}s, login ${CLIENT_ID ? "on" : "off"})`,
   );
 });

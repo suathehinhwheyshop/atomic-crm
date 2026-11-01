@@ -5,7 +5,7 @@ import { mergeDatasets, parseWorkbook } from "../model/parseWorkbook";
 import type { BranchCode, Dataset, WorkbookSource } from "../model/types";
 import { DEMO_TODAY, demoWorkbooks } from "./demoWorkbooks";
 
-export const REFRESH_INTERVAL_MS = 60_000;
+export const REFRESH_INTERVAL_MS = 15 * 60_000;
 
 export type LoadedData = {
   dataset: Dataset;
@@ -31,6 +31,9 @@ const loadData = async (): Promise<LoadedData> => {
   const isJson = response?.headers
     .get("content-type")
     ?.includes("application/json");
+  if (response?.status === 401) {
+    window.location.assign("login");
+  }
   if (response?.ok && isJson) {
     const sources = (await response.json()) as WorkbookSource[];
     return {

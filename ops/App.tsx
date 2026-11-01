@@ -138,7 +138,7 @@ const Shell = () => {
           ) : null}
           <div>
             Cập nhật {data.fetchedAt.toLocaleTimeString("vi-VN")} · tự làm mới
-            mỗi {REFRESH_INTERVAL_MS / 1000}s
+            mỗi {REFRESH_INTERVAL_MS / 60_000} phút
           </div>
           <Button
             size="sm"
@@ -149,6 +149,11 @@ const Shell = () => {
           >
             <RefreshCw className={isFetching ? "animate-spin" : ""} /> Làm mới
           </Button>
+          {data.mode === "live" ? (
+            <a href="auth/logout" className="block text-center hover:underline">
+              Đăng xuất
+            </a>
+          ) : null}
         </div>
       </aside>
       <div className="min-w-0 flex-1">

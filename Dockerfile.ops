@@ -13,7 +13,7 @@ FROM node:22-slim
 WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 OPS_STATIC_DIR=/app/dist-ops
 COPY --from=build /app/dist-ops ./dist-ops
-COPY scripts/ops-server.mjs ./scripts/ops-server.mjs
+COPY scripts/ops-server.mjs scripts/ops-auth.mjs ./scripts/
 COPY scripts/sheets/googleAuth.mjs ./scripts/sheets/googleAuth.mjs
 USER node
 EXPOSE 8080
