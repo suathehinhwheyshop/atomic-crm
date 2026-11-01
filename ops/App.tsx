@@ -7,7 +7,14 @@ import {
   Workflow,
 } from "lucide-react";
 import { useMemo } from "react";
-import { HashRouter, Navigate, NavLink, Route, Routes } from "react-router";
+import {
+  HashRouter,
+  MemoryRouter,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+} from "react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +43,11 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { ShiftsPage } from "./pages/ShiftsPage";
 
 const queryClient = new QueryClient();
+
+// Hosted previews (Claude artifacts) do not allow "#/path" hashes: keep the
+// router in memory there; everywhere else the hash gives bookmarkable pages.
+const Router =
+  import.meta.env.VITE_ROUTER === "memory" ? MemoryRouter : HashRouter;
 
 const SECTIONS = [
   { to: "/", label: "Tổng quan", icon: BarChart3 },
@@ -251,9 +263,9 @@ const Root = () => {
         to: data.today,
       }}
     >
-      <HashRouter>
+      <Router>
         <Shell />
-      </HashRouter>
+      </Router>
     </FiltersProvider>
   );
 };
