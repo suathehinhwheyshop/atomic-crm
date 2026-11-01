@@ -8,5 +8,17 @@
     "branch": "HN",
     "line": "HXT",
     "spreadsheetId": "<id of BÁO CÁO BÁN HÀNG CH - HXT - HÀ NỘI>"
+  },
+  { "branch": "HCM", "line": "HCT", "spreadsheetId": "<id>" },
+  { "branch": "HCM", "line": "HXT", "spreadsheetId": "<id>" },
+  {
+    "branch": "VINH",
+    "line": "GOP",
+    "spreadsheetId": "<id of the merged Vinh file>"
+  },
+  {
+    "branch": "DN",
+    "line": "GOP",
+    "spreadsheetId": "<id of the merged Da Nang file>"
   }
 ]

@@ -1,3 +1,9 @@
+import {
+  parseCashbook,
+  parseFundSummaries,
+  parseInventory,
+  parseSupplierDebts,
+} from "./parseExtras";
 import { parseAmount, parseDate, readTable, type Table } from "./sheet";
 import type {
   CashEntry,
@@ -17,6 +23,9 @@ const TAB_PREFIX = {
   shopee: "Đơn Shopee",
   expenses: "Bảng Chi phí",
   pendingCards: "MPOS về",
+  cashbook: "Sổ quỹ",
+  inventory: "Tồn kho",
+  supplierDebts: "Công nợ NCC",
 } as const;
 
 const findTab = (source: WorkbookSource, prefix: string) =>
@@ -248,6 +257,16 @@ export const parseWorkbook = (source: WorkbookSource): Dataset => {
       source,
       findTab(source, TAB_PREFIX.pendingCards),
     ),
+    cashbook: parseCashbook(source, findTab(source, TAB_PREFIX.cashbook)),
+    fundSummaries: parseFundSummaries(
+      source,
+      findTab(source, TAB_PREFIX.cashbook),
+    ),
+    inventory: parseInventory(source, findTab(source, TAB_PREFIX.inventory)),
+    supplierDebts: parseSupplierDebts(
+      source,
+      findTab(source, TAB_PREFIX.supplierDebts),
+    ),
   };
 };
 
@@ -256,6 +275,10 @@ export const mergeDatasets = (datasets: Dataset[]): Dataset => ({
   platformOrders: datasets.flatMap((d) => d.platformOrders),
   cashEntries: datasets.flatMap((d) => d.cashEntries),
   pendingCards: datasets.flatMap((d) => d.pendingCards),
+  cashbook: datasets.flatMap((d) => d.cashbook),
+  fundSummaries: datasets.flatMap((d) => d.fundSummaries),
+  inventory: datasets.flatMap((d) => d.inventory),
+  supplierDebts: datasets.flatMap((d) => d.supplierDebts),
 });
 
 export const CHANNEL_LABELS: Record<Channel, string> = {

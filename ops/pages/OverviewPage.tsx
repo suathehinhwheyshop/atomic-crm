@@ -35,6 +35,8 @@ import {
   topProducts,
 } from "../model/metrics";
 import { CHANNEL_LABELS } from "../model/parseWorkbook";
+import { branchUnits, financialStatement } from "../model/reports";
+import { UnitLabel } from "../components/UnitLabel";
 
 export const OverviewPage = () => {
   const { loaded, scoped } = useScopedData();
@@ -48,10 +50,11 @@ export const OverviewPage = () => {
       products: topProducts(scoped.orders),
       staff: staffTotals(shiftSummary(scoped.orders)).slice(0, 6),
       alerts: buildAlerts(scoped, loaded.today),
+      branches: financialStatement(scoped, branchUnits(scoped)),
     };
   }, [scoped, loaded]);
   if (!view) return null;
-  const { kpis, channels, days, products, staff, alerts } = view;
+  const { kpis, channels, days, products, staff, alerts, branches } = view;
   const totals = channels.reduce(
     (t, c) => ({
       orders: t.orders + c.orders,
@@ -102,9 +105,57 @@ export const OverviewPage = () => {
           icon={<Receipt className="size-4" />}
           label="Chi phí"
           value={formatCompact(kpis.expenses)}
-          hint="Bảng Chi phí, dòng OK"
+          hint="Vận hành, không gồm trả NCC"
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Theo chi nhánh trong kỳ</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Chi nhánh</TableHead>
+                <TableHead className="text-right">Doanh thu</TableHead>
+                <TableHead className="text-right">Số đơn</TableHead>
+                <TableHead className="text-right">Chi phí vận hành</TableHead>
+                <TableHead className="text-right">
+                  Doanh thu − Chi phí
+                </TableHead>
+                <TableHead className="text-right">Tồn quỹ</TableHead>
+                <TableHead className="text-right">Nợ NCC</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {branches.map((b) => (
+                <TableRow key={b.unit.key}>
+                  <TableCell>
+                    <UnitLabel unit={b.unit} />
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">
+                    {formatVnd(b.revenue)}
+                  </TableCell>
+                  <TableCell className="text-right">{b.orders}</TableCell>
+                  <TableCell className="text-right">
+                    {formatVnd(b.expenses)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatVnd(b.operatingResult)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatVnd(b.cash + b.bank)}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {formatVnd(b.debtBalance)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
@@ -242,7 +293,10 @@ export const OverviewPage = () => {
               <AlertTriangle className="size-4 text-amber-500" /> Cần xử lý (
               {alerts.length})
             </CardTitle>
-            <Link to="/alerts" className="text-xs text-primary hover:underline">
+            <Link
+              to="/ops/alerts"
+              className="text-xs text-primary hover:underline"
+            >
               Xem tất cả
             </Link>
           </CardHeader>

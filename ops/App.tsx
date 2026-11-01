@@ -1,15 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  AlertTriangle,
   BarChart3,
-  Clock,
+  Landmark,
+  Package,
   RefreshCw,
-  ShoppingCart,
-  Users,
-  Wallet,
+  Workflow,
 } from "lucide-react";
 import { useMemo } from "react";
-import { HashRouter, NavLink, Route, Routes } from "react-router";
+import { HashRouter, Navigate, NavLink, Route, Routes } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,50 +15,50 @@ import { Spinner } from "@/components/ui/spinner";
 
 import { FilterBar } from "./components/FilterBar";
 import { FiltersProvider } from "./components/FiltersContext";
+import { SectionTabs } from "./components/SectionTabs";
 import { useScopedData } from "./components/useScopedData";
 import { REFRESH_INTERVAL_MS, useDataset } from "./data/useDataset";
 import { buildAlerts } from "./model/metrics";
 import { AlertsPage } from "./pages/AlertsPage";
 import { CashbookPage } from "./pages/CashbookPage";
 import { CustomersPage } from "./pages/CustomersPage";
+import { DebtsPage } from "./pages/finance/DebtsPage";
+import { ExpensesPage } from "./pages/finance/ExpensesPage";
+import { FundsPage } from "./pages/finance/FundsPage";
+import { RevenuePage } from "./pages/finance/RevenuePage";
+import { StatementPage } from "./pages/finance/StatementPage";
+import { InventoryPage } from "./pages/goods/InventoryPage";
+import { VolumePage } from "./pages/goods/VolumePage";
 import { OrdersPage } from "./pages/OrdersPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ShiftsPage } from "./pages/ShiftsPage";
 
 const queryClient = new QueryClient();
 
-const NAV = [
-  { to: "/", label: "Tổng quan", icon: BarChart3, element: <OverviewPage /> },
-  {
-    to: "/orders",
-    label: "Đơn hàng",
-    icon: ShoppingCart,
-    element: <OrdersPage />,
-  },
-  {
-    to: "/customers",
-    label: "Khách hàng",
-    icon: Users,
-    element: <CustomersPage />,
-  },
-  {
-    to: "/cashbook",
-    label: "Sổ quỹ & Chi phí",
-    icon: Wallet,
-    element: <CashbookPage />,
-  },
-  {
-    to: "/shifts",
-    label: "Ca & Nhân viên",
-    icon: Clock,
-    element: <ShiftsPage />,
-  },
-  {
-    to: "/alerts",
-    label: "Cần xử lý",
-    icon: AlertTriangle,
-    element: <AlertsPage />,
-  },
+const SECTIONS = [
+  { to: "/", label: "Tổng quan", icon: BarChart3 },
+  { to: "/goods", label: "Hàng hóa", icon: Package },
+  { to: "/finance", label: "Tài chính", icon: Landmark },
+  { to: "/ops", label: "Vận hành", icon: Workflow },
+];
+
+const GOODS_TABS = [
+  { to: "/goods/volume", label: "Số lượng bán ra" },
+  { to: "/goods/inventory", label: "Tồn kho" },
+];
+const FINANCE_TABS = [
+  { to: "/finance/revenue", label: "Doanh thu" },
+  { to: "/finance/expenses", label: "Chi phí" },
+  { to: "/finance/funds", label: "Tồn quỹ" },
+  { to: "/finance/debts", label: "Công nợ NCC" },
+  { to: "/finance/statement", label: "Báo cáo gộp" },
+];
+const OPS_TABS = [
+  { to: "/ops/orders", label: "Đơn hàng" },
+  { to: "/ops/customers", label: "Khách hàng" },
+  { to: "/ops/cashbook", label: "Sổ quỹ & Chi phí" },
+  { to: "/ops/shifts", label: "Ca & Nhân viên" },
+  { to: "/ops/alerts", label: "Cần xử lý" },
 ];
 
 const AlertCount = () => {
@@ -76,31 +74,41 @@ const AlertCount = () => {
   ) : null;
 };
 
+const SectionLink = ({
+  to,
+  label,
+  icon: Icon,
+  compact,
+}: (typeof SECTIONS)[number] & { compact?: boolean }) => (
+  <NavLink
+    to={to}
+    end={to === "/"}
+    className={({ isActive }) =>
+      compact
+        ? `shrink-0 rounded-md px-3 py-1.5 text-sm ${isActive ? "bg-primary text-primary-foreground" : ""}`
+        : `flex items-center gap-2 rounded-md px-2 py-2 text-sm ${isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`
+    }
+  >
+    {compact ? null : <Icon className="size-4" />} {label}
+    {to === "/ops" && !compact ? <AlertCount /> : null}
+  </NavLink>
+);
+
 const Shell = () => {
   const { data, isFetching, refetch, error } = useDataset();
   if (!data) return null;
   return (
     <div className="flex min-h-screen bg-muted/30">
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r bg-background p-3 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-52 shrink-0 flex-col border-r bg-background p-3 md:flex">
         <div className="px-2 py-3">
           <div className="text-lg font-bold">WheyShop</div>
           <div className="text-xs text-muted-foreground">
-            Quản lý bán hàng & khách hàng
+            Báo cáo bán hàng & tài chính
           </div>
         </div>
         <nav className="mt-2 flex flex-col gap-1">
-          {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              className={({ isActive }) =>
-                `flex items-center gap-2 rounded-md px-2 py-2 text-sm ${isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`
-              }
-            >
-              <Icon className="size-4" /> {label}
-              {to === "/alerts" ? <AlertCount /> : null}
-            </NavLink>
+          {SECTIONS.map((s) => (
+            <SectionLink key={s.to} {...s} />
           ))}
         </nav>
         <div className="mt-auto space-y-2 px-2 text-xs text-muted-foreground">
@@ -141,17 +149,8 @@ const Shell = () => {
       </aside>
       <div className="min-w-0 flex-1">
         <nav className="flex gap-1 overflow-x-auto border-b bg-background p-2 md:hidden">
-          {NAV.map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              className={({ isActive }) =>
-                `shrink-0 rounded-md px-3 py-1.5 text-sm ${isActive ? "bg-primary text-primary-foreground" : ""}`
-              }
-            >
-              {label}
-            </NavLink>
+          {SECTIONS.map((s) => (
+            <SectionLink key={s.to} {...s} compact />
           ))}
         </nav>
         <FilterBar
@@ -160,9 +159,41 @@ const Shell = () => {
         />
         <main className="p-6">
           <Routes>
-            {NAV.map(({ to, element }) => (
-              <Route key={to} path={to} element={element} />
-            ))}
+            <Route path="/" element={<OverviewPage />} />
+            <Route
+              path="/goods"
+              element={<SectionTabs title="Hàng hóa" tabs={GOODS_TABS} />}
+            >
+              <Route index element={<Navigate to="/goods/volume" replace />} />
+              <Route path="volume" element={<VolumePage />} />
+              <Route path="inventory" element={<InventoryPage />} />
+            </Route>
+            <Route
+              path="/finance"
+              element={<SectionTabs title="Tài chính" tabs={FINANCE_TABS} />}
+            >
+              <Route
+                index
+                element={<Navigate to="/finance/revenue" replace />}
+              />
+              <Route path="revenue" element={<RevenuePage />} />
+              <Route path="expenses" element={<ExpensesPage />} />
+              <Route path="funds" element={<FundsPage />} />
+              <Route path="debts" element={<DebtsPage />} />
+              <Route path="statement" element={<StatementPage />} />
+            </Route>
+            <Route
+              path="/ops"
+              element={<SectionTabs title="Vận hành" tabs={OPS_TABS} />}
+            >
+              <Route index element={<Navigate to="/ops/orders" replace />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="customers" element={<CustomersPage />} />
+              <Route path="cashbook" element={<CashbookPage />} />
+              <Route path="shifts" element={<ShiftsPage />} />
+              <Route path="alerts" element={<AlertsPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>

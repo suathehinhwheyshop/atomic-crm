@@ -9,6 +9,15 @@ import {
   summarizeChannels,
 } from "./metrics";
 import { mergeDatasets, parseWorkbook } from "./parseWorkbook";
+import { periodOf } from "./period";
+import {
+  branchUnits,
+  financialStatement,
+  fundLatestByUnit,
+  fundSeries,
+  matrixTotal,
+  revenueMatrix,
+} from "./reports";
 import { parseAmount, parseDate } from "./sheet";
 import type { WorkbookSource } from "./types";
 
@@ -354,5 +363,253 @@ describe("metrics on demo workbooks", () => {
     expect(alerts.filter((a) => a.key.startsWith("card-"))).toHaveLength(
       waiting.length,
     );
+  });
+});
+
+describe("Sổ quỹ, Tồn kho and Công nợ tabs", () => {
+  it("reads daily closing balances and the summary block from the Sổ quỹ tab", () => {
+    const { cashbook, fundSummaries } = parseWorkbook(
+      source({
+        "Sổ quỹ HCT": [
+          ["SỔ QUỸ"],
+          [],
+          [
+            "Từ ngày",
+            "01/10/2026",
+            "Đến ngày",
+            "27/10/2026",
+            "",
+            "Chốt thực tế ngày",
+            "27/10/2026",
+          ],
+          [],
+          [
+            "Quỹ",
+            "Số dư đầu (nhập tay)",
+            "Số dư đầu kỳ",
+            "Tổng thu",
+            "Tổng chi",
+            "Số dư cuối kỳ",
+            "Số dư thực tế",
+            "Chênh lệch",
+            "Số dư sổ tại ngày chốt",
+          ],
+          [
+            "Tiền mặt",
+            "0",
+            "0",
+            "107.076.000",
+            "4.646.000",
+            "102.430.000",
+            "102.000.000",
+            "430.000",
+            "102.430.000",
+          ],
+          [
+            "BIDV (gồm MPOS)",
+            "274.354.847",
+            "274.354.847",
+            "",
+            "",
+            "155.565.510",
+            "",
+            "",
+            "155.565.510",
+          ],
+          ["Tổng"],
+          [],
+          [],
+          [
+            "Ngày",
+            "Loại",
+            "Nguồn",
+            "Mã đơn / Mã CT",
+            "Nhóm",
+            "Diễn giải",
+            "Quỹ",
+            "Thu tiền mặt",
+            "Chi tiền mặt",
+            "Tồn tiền mặt",
+            "Thu BIDV",
+            "Chi BIDV",
+            "Tồn BIDV",
+            "MPOS chờ về (chưa vào BIDV)",
+            "Tồn MPOS chờ về",
+          ],
+          [
+            "01/10/2026",
+            "Thu",
+            "Bảng Chi phí",
+            "CP-0001",
+            "NT HN",
+            "Thu",
+            "Tiền mặt",
+            "590.000",
+            "",
+            "590.000",
+            "",
+            "",
+            "274.354.847",
+          ],
+          [
+            "01/10/2026",
+            "Thu",
+            "Bảng Chi phí",
+            "CP-0002",
+            "NT HN",
+            "Thu",
+            "Tiền mặt",
+            "1.120.000",
+            "",
+            "1.710.000",
+            "",
+            "",
+            "274.354.847",
+          ],
+          [
+            "02/10/2026",
+            "Thu",
+            "Đơn CH",
+            "SON1",
+            "BÁN HÀNG",
+            "MPOS",
+            "MPOS chờ về",
+            "",
+            "",
+            "1.710.000",
+            "",
+            "",
+            "274.354.847",
+            "420.000",
+            "420.000",
+          ],
+        ],
+      }),
+    );
+
+    expect(cashbook).toEqual([
+      expect.objectContaining({
+        date: "2026-10-01",
+        cashBalance: 1_710_000,
+        bankBalance: 274_354_847,
+        pendingCardBalance: 0,
+      }),
+      expect.objectContaining({
+        date: "2026-10-02",
+        cashBalance: 1_710_000,
+        pendingCardBalance: 420_000,
+      }),
+    ]);
+    expect(fundSummaries).toEqual([
+      expect.objectContaining({
+        fund: "cash",
+        opening: 0,
+        closing: 102_430_000,
+        actual: 102_000_000,
+        closingDate: "2026-10-27",
+      }),
+      expect.objectContaining({
+        fund: "bank",
+        opening: 274_354_847,
+        actual: null,
+      }),
+    ]);
+  });
+
+  it("reads the proposed inventory and supplier debt tabs", () => {
+    const { inventory, supplierDebts } = parseWorkbook(
+      source({
+        "Tồn kho": [
+          ["TỒN KHO"],
+          [],
+          ["Ngày", "Sản phẩm", "Tồn", "Đơn vị", "Giá vốn", "Tồn tối thiểu"],
+          ["31/10/2026", "Whey", "12", "hộp", "1.650.000", "5"],
+        ],
+        "Công nợ NCC": [
+          ["CÔNG NỢ"],
+          [
+            "Ngày",
+            "Nhà cung cấp",
+            "Nợ đầu kỳ",
+            "Nhập trong kỳ",
+            "Đã trả",
+            "Còn nợ",
+            "Hạn thanh toán",
+            "Ghi chú",
+          ],
+          [
+            "31/10/2026",
+            "NCC A",
+            "10.000.000",
+            "5.000.000",
+            "8.000.000",
+            "",
+            "15/11/2026",
+            "x",
+          ],
+        ],
+      }),
+    );
+
+    expect(inventory[0]).toMatchObject({
+      product: "Whey",
+      quantity: 12,
+      costPrice: 1_650_000,
+      minimum: 5,
+      updatedAt: "2026-10-31",
+    });
+    expect(supplierDebts[0]).toMatchObject({
+      supplier: "NCC A",
+      balance: 7_000_000,
+      dueDate: "2026-11-15",
+    });
+  });
+});
+
+describe("branch reports on demo workbooks", () => {
+  const data = mergeDatasets(demoWorkbooks().map(parseWorkbook));
+  const units = branchUnits(data);
+
+  it("lists the six branch units in display order", () => {
+    expect(units.map((u) => u.key)).toEqual([
+      "HN-HCT",
+      "HN-HXT",
+      "HCM-HCT",
+      "HCM-HXT",
+      "VINH-GOP",
+      "DN-GOP",
+    ]);
+  });
+
+  it("monthly revenue matrix sums to the overall revenue", () => {
+    const matrix = revenueMatrix(data, units, "month");
+
+    expect(matrix.periods.map((p) => p.key)).toEqual(["2026-09", "2026-10"]);
+    expect(matrixTotal(matrix)).toBe(computeKpis(data).revenue);
+  });
+
+  it("statement revenue per unit matches the revenue matrix column", () => {
+    const matrix = revenueMatrix(data, units, "month");
+    financialStatement(data, units).forEach((row) => {
+      expect(row.revenue).toBe(matrixTotal(matrix, undefined, row.unit.key));
+      expect(row.operatingResult).toBe(row.revenue - row.expenses);
+    });
+  });
+
+  it("fund series ends at the sum of each unit's last balance", () => {
+    const series = fundSeries(data.cashbook);
+    const latest = fundLatestByUnit(data.cashbook, units);
+
+    expect(series.at(-1)?.total).toBe(
+      latest.reduce((t, r) => t + r.cashBalance + r.bankBalance, 0),
+    );
+  });
+
+  it("week periods label the ISO week and its Monday–Sunday range", () => {
+    expect(periodOf("2026-10-21", "week")).toEqual({
+      key: "2026-W43",
+      label: "T43 · 19/10–25/10",
+      start: "2026-10-19",
+    });
   });
 });

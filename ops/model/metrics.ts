@@ -1,3 +1,4 @@
+import { isOperatingExpense } from "./reports";
 import type {
   BranchCode,
   CashEntry,
@@ -24,14 +25,19 @@ const inScope = (filters: Filters) => (record: Scoped) =>
 
 export const filterDataset = (data: Dataset, filters: Filters): Dataset => {
   const keep = inScope(filters);
+  const keepSnapshot = (r: { branch: BranchCode; line: GoodsLine }) =>
+    (filters.branch === "ALL" || r.branch === filters.branch) &&
+    (filters.line === "ALL" || r.line === filters.line);
   return {
     orders: data.orders.filter(keep),
     platformOrders: data.platformOrders.filter(keep),
     cashEntries: data.cashEntries.filter(keep),
-    // Pending card payments are a live backlog: scope by branch/line only.
-    pendingCards: data.pendingCards.filter((p) =>
-      inScope({ ...filters, from: "", to: "" })(p),
-    ),
+    // Live snapshots (pending cards, stock, debts, fund summary): scope by branch/line only.
+    pendingCards: data.pendingCards.filter(keepSnapshot),
+    cashbook: data.cashbook.filter(keep),
+    fundSummaries: data.fundSummaries.filter(keepSnapshot),
+    inventory: data.inventory.filter(keepSnapshot),
+    supplierDebts: data.supplierDebts.filter(keepSnapshot),
   };
 };
 
@@ -110,10 +116,7 @@ export const computeKpis = (data: Dataset): Kpis => {
     card: sum(channels, (c) => c.card),
     cod: sum(channels, (c) => c.cod),
     pendingCards: sum(data.pendingCards, (p) => p.amount),
-    expenses: sum(
-      data.cashEntries.filter((e) => e.kind === "Chi" && isOk(e.check)),
-      (e) => e.amount,
-    ),
+    expenses: sum(data.cashEntries.filter(isOperatingExpense), (e) => e.amount),
   };
 };
 

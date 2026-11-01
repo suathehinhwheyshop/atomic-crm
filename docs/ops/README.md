@@ -5,18 +5,26 @@ Sales, customer and cash dashboard built on top of the branch report spreadsheet
 the dashboard reads their input tabs and recomputes every figure with the same rules
 as the sheet formulas.
 
-## Pages
+## Sections
 
-| Page | Content |
+| Section | Tabs |
 |---|---|
-| Tổng quan | KPIs, revenue per day and channel, channel table with payment split, best sellers, staff ranking, top alerts |
-| Đơn hàng | Orders from store / local delivery / post office / TikTok / Shopee tabs, search, status filters, order detail |
-| Khách hàng | Customers merged by phone number across channels, segments (VIP / returning / new), purchase history, call / Zalo links |
-| Sổ quỹ & Chi phí | Fund movements in the period, income / expense per group, pending MPOS payments, expense rows |
-| Ca & Nhân viên | Same grouping as the "Tổng hợp ca" tab (date + staff + channel) and staff totals |
-| Cần xử lý | Rows the sheets flag (check not OK), undelivered local orders, unpaid post orders, MPOS waiting 3+ days, platform mismatches |
+| Tổng quan | KPIs, per-branch table, revenue per day and channel, channel table, best sellers, staff, top alerts |
+| Hàng hóa | **Số lượng bán ra** (units sold per week / month and per product, by branch), **Tồn kho** (current stock per branch, proposed tab) |
+| Tài chính | **Doanh thu** (per week / month by branch, orders, revenue − operating expenses), **Chi phí** (monthly by branch, by group, supplier payments), **Tồn quỹ** (cash / bank balance over time from the Sổ quỹ tab, actual vs book), **Công nợ NCC** (supplier debt per branch, proposed tab), **Báo cáo gộp** (monthly statement per branch) |
+| Vận hành | Đơn hàng, Khách hàng, Sổ quỹ & Chi phí, Ca & Nhân viên, Cần xử lý |
 
-Global filters: branch (HN, SG, Vinh, ĐN), goods line (HCT / HXT), period.
+Global filters: branch (HN, HCM, Vinh, ĐN), goods line (HCT / HXT / merged), period.
+Branch units: HN and HCM have one file per goods line (Cty, XT); Vinh and ĐN have one merged file.
+
+## Proposed tabs (not in the current files)
+
+Add to each report spreadsheet, header row starting with "Ngày":
+
+- `Tồn kho`: Ngày | Sản phẩm | Tồn | Đơn vị | Giá vốn | Tồn tối thiểu (one row per product, updated at each stock count)
+- `Công nợ NCC`: Ngày | Nhà cung cấp | Nợ đầu kỳ | Nhập trong kỳ | Đã trả | Còn nợ | Hạn thanh toán | Ghi chú (one row per supplier)
+
+Until they exist the dashboard shows demo numbers on those pages, with an amber notice. Gross profit needs cost of goods, which no tab provides yet.
 
 ## Run
 
@@ -41,4 +49,6 @@ login and listens on 127.0.0.1 only: add authentication before exposing it.
 - `ops/model/sheet.ts`: header-row detection, Vietnamese number and date parsing
 - `ops/model/parseWorkbook.ts`: tab rows to orders, platform orders, cash entries, pending card payments
 - `ops/model/metrics.ts`: filters, KPIs, channel / day / shift summaries, customers, alerts
+- `ops/model/reports.ts`: per-branch matrices (week / month), inventory, debt, fund balance, statement
+- `ops/model/parseExtras.ts`: Sổ quỹ running balances, Tồn kho and Công nợ NCC tabs
 - `scripts/ops-server.mjs`: reads the spreadsheets with the service account and serves the dashboard
