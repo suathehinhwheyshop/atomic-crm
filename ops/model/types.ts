@@ -137,13 +137,117 @@ export type Dataset = {
   inventory: InventoryItem[];
   supplierLedger: SupplierEntry[];
   catalog: Product[];
+  pnl: PnlLine[];
+  dailyBooks: DailyBook[];
+  supplierInfo: SupplierInfo[];
+  paymentSchedule: PaymentSchedule[];
+  stock: StockRow[];
+  purchaseOrders: PurchaseOrderLine[];
+  receipts: ReceiptLine[];
 };
 
 /** Raw values of one spreadsheet, keyed by tab title (as returned by the Sheets API). */
 export type WorkbookValues = Record<string, string[][]>;
 
+/** sales = "Báo cáo bán hàng", bctc = "BCTC", kho = "Hàng hóa - Kho", price = "Bảng giá". */
+export type WorkbookKind = "sales" | "bctc" | "kho" | "price";
+
 export type WorkbookSource = {
   branch: BranchCode;
   line: GoodsLine;
+  kind?: WorkbookKind;
   tabs: WorkbookValues;
+};
+
+/** One line of the monthly P&L tab ("BCTC tháng" / "Báo cáo tài chính"): 12 month values. */
+export type PnlLine = {
+  branch: BranchCode;
+  line: GoodsLine;
+  section: string; // "I. CỬA HÀNG…", "II. TIKTOK", …
+  label: string;
+  months: number[]; // index 0 = January
+  total: number;
+  emphasis: boolean; // numbered lines ("1. DOANH THU", "5. LỢI NHUẬN…") and totals
+};
+
+/** One day of the "DT ngày" / "Doanh thu ngày" tab: Sapo revenue and cost of goods per channel. */
+export type DailyBook = {
+  branch: BranchCode;
+  line: GoodsLine;
+  date: string;
+  revenueStore: number;
+  revenueLocal: number;
+  revenuePost: number;
+  costStore: number;
+  costLocal: number;
+  costPost: number;
+  check: string;
+};
+
+export type SupplierInfo = {
+  branch: BranchCode;
+  line: GoodsLine;
+  supplier: string;
+  company: string;
+  bank: string;
+};
+
+/** "Lịch TT NCC": amounts due per supplier and branch, what was paid, what is still missing. */
+export type PaymentSchedule = {
+  key: string;
+  branch: BranchCode;
+  line: GoodsLine;
+  date: string;
+  supplier: string;
+  note: string;
+  due: number;
+  paid: number;
+  remaining: number;
+  method: string;
+};
+
+/** "Hàng xách tay tồn kho" row. */
+export type StockRow = {
+  key: string;
+  branch: BranchCode;
+  product: string;
+  opening: number;
+  received: number;
+  sold: number;
+  transferred: number;
+  closing: number;
+  expiry: string;
+  minimum: number;
+  warning: string;
+};
+
+/** "Hàng công ty đã đặt" row (one product of one purchase order). */
+export type PurchaseOrderLine = {
+  key: string;
+  branch: BranchCode;
+  date: string;
+  po: string;
+  supplier: string;
+  product: string;
+  ordered: number;
+  unitPrice: number;
+  expected: string;
+  received: number;
+  missing: number;
+  status: string;
+  cancelled: boolean;
+};
+
+/** "Hàng công ty mới về" row. */
+export type ReceiptLine = {
+  key: string;
+  branch: BranchCode;
+  date: string;
+  po: string;
+  supplier: string;
+  product: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  expiry: string;
 };

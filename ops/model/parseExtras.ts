@@ -29,17 +29,21 @@ export const parseCashbook = (
         (previous?.cashOut ?? 0) + parseAmount(table.get(row, "Chi tiền mặt")),
       bankIn:
         (previous?.bankIn ?? 0) +
-        parseAmount(table.get(row, "Thu BIDV") || table.get(row, "Thu MB")),
+        parseAmount(
+          table.get(row, "Thu BIDV", "Thu MB", "Thu OCB", "Thu ngân hàng"),
+        ),
       bankOut:
         (previous?.bankOut ?? 0) +
-        parseAmount(table.get(row, "Chi BIDV") || table.get(row, "Chi MB")),
+        parseAmount(
+          table.get(row, "Chi BIDV", "Chi MB", "Chi OCB", "Chi ngân hàng"),
+        ),
       branch: source.branch,
       line: source.line,
       date,
       cashBalance: parseAmount(table.get(row, "Tồn tiền mặt")),
-      // "Tồn BIDV" in the HCT file, "Tồn MB" in the HXT file.
+      // "Tồn BIDV" (HN HCT), "Tồn MB" (HN HXT), "Tồn OCB" (Q10 HXT), "Tồn ngân hàng" (ĐN, Vinh).
       bankBalance: parseAmount(
-        table.get(row, "Tồn BIDV") || table.get(row, "Tồn MB"),
+        table.get(row, "Tồn BIDV", "Tồn MB", "Tồn OCB", "Tồn ngân hàng"),
       ),
       pendingCardBalance,
     });
@@ -81,7 +85,10 @@ export const parseFundSummaries = (
     );
   return [
     ...read("cash", first("Tiền mặt")),
-    ...read("bank", first("BIDV") ?? first("MB")),
+    ...read(
+      "bank",
+      first("BIDV") ?? first("MB") ?? first("OCB") ?? first("Ngân hàng"),
+    ),
   ];
 };
 

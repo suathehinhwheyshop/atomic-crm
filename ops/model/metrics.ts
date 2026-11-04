@@ -46,6 +46,23 @@ export const filterDataset = (data: Dataset, filters: Filters): Dataset => {
       (e) => keepSnapshot(e) && (!filters.to || e.date <= filters.to),
     ),
     catalog: data.catalog,
+    // Accounting tabs: monthly P&L is kept whole (pages pick the months), daily
+    // books follow the period, supplier info / schedule / stock are snapshots.
+    pnl: data.pnl.filter(keepSnapshot),
+    dailyBooks: data.dailyBooks.filter(keep),
+    supplierInfo: data.supplierInfo.filter(keepSnapshot),
+    paymentSchedule: data.paymentSchedule.filter(keepSnapshot),
+    stock: data.stock.filter(
+      (r) => filters.branch === "ALL" || r.branch === filters.branch,
+    ),
+    purchaseOrders: data.purchaseOrders.filter(
+      (r) => filters.branch === "ALL" || r.branch === filters.branch,
+    ),
+    receipts: data.receipts.filter(
+      (r) =>
+        (filters.branch === "ALL" || r.branch === filters.branch) &&
+        (!filters.to || r.date <= filters.to),
+    ),
   };
 };
 

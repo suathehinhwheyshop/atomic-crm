@@ -28,20 +28,46 @@ const PORT = Number(process.env.PORT ?? 4300);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const CACHE_MS = Number(process.env.OPS_CACHE_SECONDS ?? 300) * 1000;
 const STATIC_DIR = path.resolve(process.env.OPS_STATIC_DIR ?? "dist-ops");
-// Only the input tabs are needed: the dashboard recomputes totals itself.
-const TAB_PREFIXES = [
-  "Đơn CH",
-  "Đơn NT",
-  "Đơn Bưu điện",
-  "Đơn Tiktok",
-  "Đơn Shopee",
-  "Bảng Chi phí",
-  "MPOS về",
-  "Sổ quỹ",
-  "Tồn kho",
-  "Công nợ NCC",
-  "Danh mục sản phẩm",
-];
+// Tabs to read per file kind: the dashboard recomputes totals itself from the input tabs.
+const TAB_PREFIXES = {
+  sales: [
+    "Đơn CH",
+    "Đơn Cửa hàng",
+    "Đơn Tại Cửa hàng",
+    "Đơn NT",
+    "Đơn Nội thành",
+    "Đơn Ship Nội thành",
+    "Đơn Bưu điện",
+    "Đơn COD",
+    "Đơn Tiktok",
+    "Đơn Shopee",
+    "Bảng Chi phí",
+    "Chi Phí",
+    "MPOS về",
+    "Sổ quỹ",
+    "Tồn kho",
+    "Công nợ NCC",
+    "Danh mục sản phẩm",
+  ],
+  bctc: [
+    "BCTC tháng",
+    "Báo cáo tài chính",
+    "DT ngày",
+    "Doanh thu ngày",
+    "Công nợ NCC",
+    "Công nợ Nhà cung cấp",
+    "Tóm tắt công nợ",
+    "Lịch TT NCC",
+    "Lịch Thanh toán",
+  ],
+  kho: [
+    "Danh mục",
+    "Hàng xách tay tồn kho",
+    "Hàng công ty đã đặt",
+    "Hàng công ty mới về",
+  ],
+  price: [],
+};
 const MIME = {
   ".html": "text/html",
   ".js": "text/javascript",
@@ -90,13 +116,23 @@ if (
   fail("sources must be an array of { branch, line, spreadsheetId }");
 }
 
-const fetchWorkbook = async ({ branch, line, spreadsheetId }) => {
+const fetchWorkbook = async ({
+  branch,
+  line,
+  kind = "sales",
+  spreadsheetId,
+}) => {
+  const prefixes = TAB_PREFIXES[kind] ?? TAB_PREFIXES.sales;
   const token = await getToken();
   const api = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
   const meta = await googleGet(`${api}?fields=sheets.properties.title`, token);
   const titles = meta.sheets
     .map((s) => s.properties.title)
-    .filter((title) => TAB_PREFIXES.some((prefix) => title.startsWith(prefix)));
+    .filter((title) =>
+      prefixes.some((prefix) =>
+        title.toLowerCase().startsWith(prefix.toLowerCase()),
+      ),
+    );
   const query = titles
     .map((t) => `ranges=${encodeURIComponent(`'${t}'`)}`)
     .join("&");
@@ -107,6 +143,7 @@ const fetchWorkbook = async ({ branch, line, spreadsheetId }) => {
   return {
     branch,
     line,
+    kind,
     tabs: Object.fromEntries(
       titles.map((title, i) => [title, valueRanges[i].values ?? []]),
     ),

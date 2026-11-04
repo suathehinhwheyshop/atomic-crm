@@ -2,23 +2,85 @@
   {
     "branch": "HN",
     "line": "HCT",
-    "spreadsheetId": "<id of BÁO CÁO BÁN HÀNG CH - HCT - HÀ NỘI>"
+    "kind": "sales",
+    "spreadsheetId": "<BÁO CÁO BÁN HÀNG CH - HCT - HÀ NỘI>"
   },
   {
     "branch": "HN",
     "line": "HXT",
-    "spreadsheetId": "<id of BÁO CÁO BÁN HÀNG CH - HXT - HÀ NỘI>"
+    "kind": "sales",
+    "spreadsheetId": "<BÁO CÁO BÁN HÀNG CH - HXT - HÀ NỘI>"
   },
-  { "branch": "HCM", "line": "HCT", "spreadsheetId": "<id>" },
-  { "branch": "HCM", "line": "HXT", "spreadsheetId": "<id>" },
   {
-    "branch": "VINH",
+    "branch": "HN",
+    "line": "HCT",
+    "kind": "bctc",
+    "spreadsheetId": "<BCTC HN 2026 - HCT>"
+  },
+  {
+    "branch": "HN",
+    "line": "HXT",
+    "kind": "bctc",
+    "spreadsheetId": "<BCTC HN 2026 - HXT>"
+  },
+  {
+    "branch": "HN",
     "line": "GOP",
-    "spreadsheetId": "<id of the merged Vinh file>"
+    "kind": "kho",
+    "spreadsheetId": "<HÀNG HÓA - KHO - QUANG>"
+  },
+  {
+    "branch": "HCM",
+    "line": "HCT",
+    "kind": "sales",
+    "spreadsheetId": "<BÁO CÁO BÁN HÀNG CH - HCT - QUẬN 10>"
+  },
+  {
+    "branch": "HCM",
+    "line": "HXT",
+    "kind": "sales",
+    "spreadsheetId": "<BÁO CÁO BÁN HÀNG CH - HXT - QUẬN 10>"
+  },
+  {
+    "branch": "HCM",
+    "line": "HCT",
+    "kind": "bctc",
+    "spreadsheetId": "<BCTC SG 2026 - HCT>"
+  },
+  {
+    "branch": "HCM",
+    "line": "HXT",
+    "kind": "bctc",
+    "spreadsheetId": "<BCTC SG 2026 - HXT>"
+  },
+  {
+    "branch": "HCM",
+    "line": "GOP",
+    "kind": "kho",
+    "spreadsheetId": "<HÀNG HÓA - KHO - SG>"
   },
   {
     "branch": "DN",
     "line": "GOP",
-    "spreadsheetId": "<id of the merged Da Nang file>"
+    "kind": "sales",
+    "spreadsheetId": "<BÁO CÁO BÁN HÀNG CH - ĐÀ NẴNG 2026>"
+  },
+  {
+    "branch": "DN",
+    "line": "GOP",
+    "kind": "bctc",
+    "spreadsheetId": "<BCTC ĐÀ NẴNG 2026>"
+  },
+  {
+    "branch": "VINH",
+    "line": "GOP",
+    "kind": "sales",
+    "spreadsheetId": "<BÁO CÁO BÁN HÀNG CH - VINH 2026>"
+  },
+  {
+    "branch": "VINH",
+    "line": "GOP",
+    "kind": "bctc",
+    "spreadsheetId": "<BCTC VINH 2026>"
   }
 ]

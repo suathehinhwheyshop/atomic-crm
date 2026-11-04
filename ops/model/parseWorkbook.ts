@@ -4,7 +4,12 @@ import {
   parseFundSummaries,
   parseInventory,
 } from "./parseExtras";
-import { ledgerFromCashEntries, parseSupplierLedger } from "./supplierLedger";
+import { parseBctcWorkbook, parseKhoWorkbook } from "./parseFinance";
+import {
+  ledgerFromCashEntries,
+  parseSupplierLedger,
+  type SupplierEntry,
+} from "./supplierLedger";
 import { parseAmount, parseDate, readTable, type Table } from "./sheet";
 import type {
   CashEntry,
@@ -16,21 +21,47 @@ import type {
   WorkbookSource,
 } from "./types";
 
-const TAB_PREFIX = {
-  store: "Đơn CH",
-  local: "Đơn NT",
-  post: "Đơn Bưu điện",
-  tiktok: "Đơn Tiktok",
-  shopee: "Đơn Shopee",
-  expenses: "Bảng Chi phí",
-  pendingCards: "MPOS về",
-  cashbook: "Sổ quỹ",
-  inventory: "Tồn kho",
-  supplierDebts: "Công nợ NCC",
+/** Tab title prefixes per branch file (HN / Q10 / Da Nang / Vinh spell them differently). */
+export const SALES_TABS = {
+  store: ["Đơn CH", "Đơn Cửa hàng", "Đơn Tại Cửa hàng"],
+  local: ["Đơn NT", "Đơn Nội thành", "Đơn Ship Nội thành"],
+  post: ["Đơn Bưu điện", "Đơn COD"],
+  tiktok: ["Đơn Tiktok"],
+  shopee: ["Đơn Shopee"],
+  expenses: ["Bảng Chi phí", "Chi Phí", "Chi phí"],
+  pendingCards: ["MPOS về"],
+  cashbook: ["Sổ quỹ"],
+  inventory: ["Tồn kho"],
+  supplierDebts: ["Công nợ NCC", "Công nợ Nhà cung cấp"],
 } as const;
 
-const findTab = (source: WorkbookSource, prefix: string) =>
-  Object.entries(source.tabs).find(([title]) => title.startsWith(prefix))?.[1];
+const lower = (text: string) => text.toLowerCase();
+
+export const findTab = (
+  source: WorkbookSource,
+  prefixes: readonly string[],
+) => {
+  for (const prefix of prefixes) {
+    const hit = Object.entries(source.tabs).find(([title]) =>
+      lower(title).startsWith(lower(prefix)),
+    );
+    if (hit) return hit[1];
+  }
+  return undefined;
+};
+
+// Column aliases across the branch files.
+const COL = {
+  phone: ["SĐT", "Số điện thoại"],
+  quantity: ["SL", "Số lượng"],
+  paymentMethod: ["Hình thức TT", "Hình thức thanh toán"],
+  paymentStatus: ["Trạng thái TT", "Trạng thái thanh toán"],
+  cash: ["Tiền mặt (tự tính)"],
+  bank: ["CK ", "Chuyển khoản"],
+  card: ["MPOS (tự tính)"],
+  total: ["Tổng tiền khách trả"],
+  lineTotal: ["Tiền SP", "Tiền sản phẩm"],
+} as const;
 
 const isOk = (check: string) => check.startsWith("OK");
 
@@ -52,7 +83,7 @@ const parseItemOrders = (
     const date = parseDate(get(row, "Ngày"));
     const item = {
       product: get(row, "Sản phẩm"),
-      quantity: parseAmount(get(row, "SL")),
+      quantity: parseAmount(get(row, ...COL.quantity)),
       unitPrice: parseAmount(get(row, "Đơn giá")),
       discount: parseAmount(get(row, "Chiết khấu")),
     };
@@ -64,7 +95,7 @@ const parseItemOrders = (
     if (!code || !date) continue;
 
     const check = get(row, "Kiểm tra");
-    const total = parseAmount(get(row, "Tổng tiền khách trả"));
+    const total = parseAmount(get(row, ...COL.total));
     const deliveryStatus = get(row, "Trạng thái giao");
     const counted =
       isOk(check) && (channel === "store" || deliveryStatus === "Đã giao");
@@ -79,18 +110,18 @@ const parseItemOrders = (
       code,
       source: channel === "store" ? "Cửa hàng" : get(row, "Nguồn"),
       customer: get(row, "Khách hàng"),
-      phone: normalizePhone(get(row, "SĐT")),
+      phone: normalizePhone(get(row, ...COL.phone)),
       address: get(row, "Địa chỉ"),
       items: item.product ? [item] : [],
       total,
       shippingFee: parseAmount(get(row, "Phí ship thu khách")),
-      paymentMethod: get(row, "Hình thức TT"),
-      paymentStatus: get(row, "Trạng thái TT"),
+      paymentMethod: get(row, ...COL.paymentMethod),
+      paymentStatus: get(row, ...COL.paymentStatus),
       deliveryStatus: channel === "store" ? "Đã giao" : deliveryStatus,
       postType: "",
-      cash: parseAmount(get(row, "Tiền mặt (tự tính)")),
-      bank: parseAmount(get(row, "CK ")),
-      card: parseAmount(get(row, "MPOS (tự tính)")),
+      cash: parseAmount(get(row, ...COL.cash)),
+      bank: parseAmount(get(row, ...COL.bank)),
+      card: parseAmount(get(row, ...COL.card)),
       cod: 0,
       check,
       inCashbook: get(row, "Vào Sổ quỹ") === "Đã vào sổ quỹ",
@@ -123,7 +154,7 @@ const parsePostOrders = (source: WorkbookSource, table: Table): Order[] => {
             ? shippingFee
             : 0;
     const check = get(row, "Kiểm tra");
-    const paid = get(row, "Trạng thái TT") === "Đã thanh toán";
+    const paid = get(row, ...COL.paymentStatus) === "Đã thanh toán";
     const order: Order = {
       key: `${source.branch}-${source.line}-post-${code}-${index}`,
       branch: source.branch,
@@ -135,7 +166,7 @@ const parsePostOrders = (source: WorkbookSource, table: Table): Order[] => {
       code,
       source: get(row, "Nguồn"),
       customer: get(row, "Khách hàng"),
-      phone: normalizePhone(get(row, "SĐT")),
+      phone: normalizePhone(get(row, ...COL.phone)),
       address: get(row, "Địa chỉ"),
       items: [
         {
@@ -148,7 +179,7 @@ const parsePostOrders = (source: WorkbookSource, table: Table): Order[] => {
       total,
       shippingFee,
       paymentMethod: method,
-      paymentStatus: get(row, "Trạng thái TT"),
+      paymentStatus: get(row, ...COL.paymentStatus),
       deliveryStatus,
       postType,
       cash: 0,
@@ -213,13 +244,24 @@ const parseCashEntries = (source: WorkbookSource, table: Table): CashEntry[] =>
     ];
   });
 
-/** "MPOS về ..." tab: the auto-filled pending list sits in columns E–I under a 4-row header. */
+/** "MPOS về ..." tab: the auto-filled pending list starts at the "Ngày bán" column of its header row. */
 const parsePendingCards = (
   source: WorkbookSource,
   values: string[][] | undefined,
-): PendingCard[] =>
-  (values ?? []).slice(4).flatMap((row, index) => {
-    const [dateCell, sourceCell, code, amount, days] = row.slice(4, 9);
+): PendingCard[] => {
+  const all = values ?? [];
+  const headerIndex = all.findIndex((row) =>
+    row.some((cell) => String(cell ?? "").trim() === "Ngày bán"),
+  );
+  if (headerIndex < 0) return [];
+  const start = all[headerIndex].findIndex(
+    (cell) => String(cell ?? "").trim() === "Ngày bán",
+  );
+  return all.slice(headerIndex + 1).flatMap((row, index) => {
+    const [dateCell, sourceCell, code, amount, days] = row.slice(
+      start,
+      start + 5,
+    );
     const date = parseDate(dateCell);
     if (!date || !code) return [];
     return [
@@ -235,45 +277,93 @@ const parsePendingCards = (
       },
     ];
   });
+};
+
+const EMPTY: Dataset = {
+  orders: [],
+  platformOrders: [],
+  cashEntries: [],
+  pendingCards: [],
+  cashbook: [],
+  fundSummaries: [],
+  inventory: [],
+  supplierLedger: [],
+  catalog: [],
+  pnl: [],
+  dailyBooks: [],
+  supplierInfo: [],
+  paymentSchedule: [],
+  stock: [],
+  purchaseOrders: [],
+  receipts: [],
+};
 
 export const parseWorkbook = (source: WorkbookSource): Dataset => {
-  const table = (prefix: string) => readTable(findTab(source, prefix));
-  const channels: Array<["store" | "local", string]> = [
-    ["store", TAB_PREFIX.store],
-    ["local", TAB_PREFIX.local],
+  if (source.kind === "bctc") return { ...EMPTY, ...parseBctcWorkbook(source) };
+  if (source.kind === "kho") return { ...EMPTY, ...parseKhoWorkbook(source) };
+  if (source.kind === "price") return EMPTY;
+  return parseSalesWorkbook(source);
+};
+
+const parseSalesWorkbook = (source: WorkbookSource): Dataset => {
+  const table = (prefixes: readonly string[]) =>
+    readTable(findTab(source, prefixes));
+  const channels: Array<["store" | "local", readonly string[]]> = [
+    ["store", SALES_TABS.store],
+    ["local", SALES_TABS.local],
   ];
-  const cashEntries = parseCashEntries(source, table(TAB_PREFIX.expenses));
+  const cashEntries = parseCashEntries(source, table(SALES_TABS.expenses));
   return {
     orders: [
       ...channels.flatMap(([channel, prefix]) =>
         parseItemOrders(source, channel, table(prefix)),
       ),
-      ...parsePostOrders(source, table(TAB_PREFIX.post)),
+      ...parsePostOrders(source, table(SALES_TABS.post)),
     ],
     platformOrders: [
-      ...parsePlatformOrders(source, "tiktok", table(TAB_PREFIX.tiktok)),
-      ...parsePlatformOrders(source, "shopee", table(TAB_PREFIX.shopee)),
+      ...parsePlatformOrders(source, "tiktok", table(SALES_TABS.tiktok)),
+      ...parsePlatformOrders(source, "shopee", table(SALES_TABS.shopee)),
     ],
     cashEntries,
     pendingCards: parsePendingCards(
       source,
-      findTab(source, TAB_PREFIX.pendingCards),
+      findTab(source, SALES_TABS.pendingCards),
     ),
-    cashbook: parseCashbook(source, findTab(source, TAB_PREFIX.cashbook)),
+    cashbook: parseCashbook(source, findTab(source, SALES_TABS.cashbook)),
     fundSummaries: parseFundSummaries(
       source,
-      findTab(source, TAB_PREFIX.cashbook),
+      findTab(source, SALES_TABS.cashbook),
     ),
-    inventory: parseInventory(source, findTab(source, TAB_PREFIX.inventory)),
+    inventory: parseInventory(source, findTab(source, SALES_TABS.inventory)),
     supplierLedger: [
       ...parseSupplierLedger(
         source,
-        findTab(source, TAB_PREFIX.supplierDebts),
+        findTab(source, SALES_TABS.supplierDebts),
       ).filter((e) => e.kind !== "payment"),
       ...ledgerFromCashEntries(cashEntries),
     ],
     catalog: parseCatalog(findCatalogTab(source)),
+    pnl: [],
+    dailyBooks: [],
+    supplierInfo: [],
+    paymentSchedule: [],
+    stock: [],
+    purchaseOrders: [],
+    receipts: [],
   };
+};
+
+/** Units whose BCTC file has a supplier ledger: payments derived from Bảng Chi phí are dropped there. */
+const mergeLedgers = (datasets: Dataset[]): SupplierEntry[] => {
+  const all = datasets.flatMap((d) => d.supplierLedger);
+  const fromBctc = new Set(
+    all
+      .filter((e) => e.note !== "Bảng Chi phí")
+      .map((e) => `${e.branch}-${e.line}`),
+  );
+  return all.filter(
+    (e) => e.note !== "Bảng Chi phí" || !fromBctc.has(`${e.branch}-${e.line}`),
+  );
 };
 
 export const mergeDatasets = (datasets: Dataset[]): Dataset => ({
@@ -284,8 +374,15 @@ export const mergeDatasets = (datasets: Dataset[]): Dataset => ({
   cashbook: datasets.flatMap((d) => d.cashbook),
   fundSummaries: datasets.flatMap((d) => d.fundSummaries),
   inventory: datasets.flatMap((d) => d.inventory),
-  supplierLedger: datasets.flatMap((d) => d.supplierLedger),
+  supplierLedger: mergeLedgers(datasets),
   catalog: mergeCatalogs(datasets.map((d) => d.catalog)),
+  pnl: datasets.flatMap((d) => d.pnl),
+  dailyBooks: datasets.flatMap((d) => d.dailyBooks),
+  supplierInfo: datasets.flatMap((d) => d.supplierInfo),
+  paymentSchedule: datasets.flatMap((d) => d.paymentSchedule),
+  stock: datasets.flatMap((d) => d.stock),
+  purchaseOrders: datasets.flatMap((d) => d.purchaseOrders),
+  receipts: datasets.flatMap((d) => d.receipts),
 });
 
 export const CHANNEL_LABELS: Record<Channel, string> = {

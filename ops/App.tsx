@@ -33,6 +33,7 @@ import { ChannelsPage } from "./pages/finance/ChannelsPage";
 import { DebtsPage } from "./pages/finance/DebtsPage";
 import { ExpensesPage } from "./pages/finance/ExpensesPage";
 import { FundsPage } from "./pages/finance/FundsPage";
+import { PnlPage } from "./pages/finance/PnlPage";
 import { RevenuePage } from "./pages/finance/RevenuePage";
 import { StatementPage } from "./pages/finance/StatementPage";
 import { CatalogPage } from "./pages/goods/CatalogPage";
@@ -63,6 +64,7 @@ const GOODS_TABS = [
 ];
 const FINANCE_TABS = [
   { to: "/finance/statement", label: "Báo cáo gộp" },
+  { to: "/finance/pnl", label: "BCTC tháng" },
   { to: "/finance/funds", label: "Sổ quỹ" },
   { to: "/finance/debts", label: "Công nợ NCC" },
   { to: "/finance/channels", label: "Kênh bán" },
@@ -204,6 +206,7 @@ const Shell = () => {
                 element={<Navigate to="/finance/statement" replace />}
               />
               <Route path="channels" element={<ChannelsPage />} />
+              <Route path="pnl" element={<PnlPage />} />
               <Route path="revenue" element={<RevenuePage />} />
               <Route path="expenses" element={<ExpensesPage />} />
               <Route path="funds" element={<FundsPage />} />

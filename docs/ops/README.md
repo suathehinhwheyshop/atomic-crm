@@ -17,15 +17,28 @@ as the sheet formulas.
 Global filters: branch (HN, HCM, Vinh, ĐN), goods line (HCT / HXT / merged), period.
 Branch units: HN and HCM have one file per goods line (Cty, XT); Vinh and ĐN have one merged file.
 
-## Proposed tabs (not in the current files)
+## Source files per branch
 
-Header row starts with "Ngày". CSV templates with one example row are in `ops/templates/`.
+Each branch has a sales file ("Báo cáo bán hàng", kind `sales`) and an accounting
+file ("BCTC", kind `bctc`); HN and HCM also have a stock file ("Hàng hóa - Kho",
+kind `kho`). Da Nang and Vinh keep company and hand-carried goods in one file
+(line `GOP`). `ops/sources.example.json` lists the 14 entries.
 
-- `Danh mục sản phẩm` (one shared tab, read from any file): Ngày | Mã SP | Tên chuẩn | Thương hiệu | Nhóm | Quy cách | Đơn vị | Giá vốn | Tên khác (other spellings, separated by ";"). The app maps typed product names to the catalog (exact name or alias, else the longest alias whose words all appear in the name); unmatched names are listed on Hàng hóa › Danh mục sản phẩm. Cost prices from the catalog give gross profit.
-- `Tồn kho` (per file): Ngày | Mã SP | Sản phẩm | Tồn | Tồn tối thiểu (one row per product, updated at each stock count).
-- `Công nợ NCC` (per file, a ledger): Ngày | Nhà cung cấp | Loại (Nợ đầu kỳ / Nhập hàng / Trả tiền) | Số phiếu | Diễn giải | Số tiền | Hạn thanh toán | Ghi chú. Balances, FIFO allocation of payments and ageing (not due / overdue ≤30 / >30 days) are computed in the app.
+- `sales`: orders per channel, expenses, cashbook, pending MPOS. Tab and column
+  names differ per branch (Đơn CH / Đơn Cửa hàng / Đơn Tại Cửa hàng, SĐT / Số điện
+  thoại, CK BIDV / Chuyển khoản ngân hàng, MB / OCB / AT); the parser accepts all of them.
+- `bctc`: monthly P&L ("BCTC tháng" / "Báo cáo tài chính"), daily revenue with cost
+  of goods ("DT ngày" / "Doanh thu ngày"), supplier ledger ("Công nợ NCC" / "Công nợ
+  Nhà cung cấp": one row per purchase or payment, "Số dư đầu kỳ" rows are opening
+  balances), supplier info ("Tóm tắt công nợ"), payment schedule ("Lịch TT NCC").
+  Cost of goods and supplier balances come from here; the catalog-based cost is
+  only a fallback.
+- `kho`: hand-carried stock ("Hàng xách tay tồn kho"), purchase orders ("Hàng công
+  ty đã đặt"), receipts ("Hàng công ty mới về"), product list ("Danh mục", also used
+  as the product catalog).
 
-Until they exist the dashboard shows demo numbers on those pages, with an amber notice.
+The older proposed tabs (`Danh mục sản phẩm`, `Tồn kho`, `Công nợ NCC` inside a
+sales file; templates in `ops/templates/`) are still read when present.
 
 ## Run
 

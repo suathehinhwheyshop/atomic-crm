@@ -4,6 +4,7 @@
 import { addDays, format, parseISO } from "date-fns";
 
 import type { BranchCode, GoodsLine, WorkbookSource } from "../model/types";
+import { demoBctcFor, demoKhoFor } from "./demoFinance";
 import {
   EXPENSE_HEADER,
   LOCAL_HEADER,
@@ -13,7 +14,6 @@ import {
   cashbookHeader,
   catalogHeader,
   inventoryHeader,
-  ledgerHeader,
 } from "./demoHeaders";
 
 const createRandom = (seed: number) => () => {
@@ -654,33 +654,6 @@ const buildWorkbook = ({
       String(Math.round(8 * scale)),
     ];
   });
-  const ledger: string[][] = [];
-  SUPPLIERS.slice(0, 2 + Math.round(scale * 2)).forEach((supplier, i) => {
-    ledger.push([
-      vnDate(DEMO_FROM),
-      supplier,
-      "Nợ đầu kỳ",
-      "",
-      "Số dư đầu 01/09",
-      vnAmount(Math.round((20_000_000 + random() * 40_000_000) * scale)),
-      vnDate("2026-09-15"),
-      "",
-    ]);
-    for (let month = 9; month <= 10; month++) {
-      const purchaseDay = `2026-${String(month).padStart(2, "0")}-${String(3 + i * 6).padStart(2, "0")}`;
-      const amount = Math.round((30_000_000 + random() * 60_000_000) * scale);
-      ledger.push([
-        vnDate(purchaseDay),
-        supplier,
-        "Nhập hàng",
-        `PN${month}${i}`,
-        "Nhập hàng tháng (demo)",
-        vnAmount(amount),
-        vnDate(format(addDays(parseISO(purchaseDay), 30), "yyyy-MM-dd")),
-        "",
-      ]);
-    }
-  });
   const catalogRows = catalog.map(([code, name, , cost, aliases]) => [
     vnDate(DEMO_FROM),
     code,
@@ -753,7 +726,6 @@ const buildWorkbook = ({
       ...cashbook,
     ],
     "Tồn kho": [...titleRows("Tồn kho"), inventoryHeader, ...inventory],
-    "Công nợ NCC": [...titleRows("Công nợ NCC"), ledgerHeader, ...ledger],
     // In production the catalog is one shared tab; the demo repeats it in the HN file only.
     ...(branch === "HN"
       ? {
@@ -772,7 +744,7 @@ const buildWorkbook = ({
   return { branch, line, tabs };
 };
 
-export const demoWorkbooks = (): WorkbookSource[] => [
+const demoSalesWorkbooks = (): WorkbookSource[] => [
   buildWorkbook({
     branch: "HN",
     line: "HCT",
@@ -816,3 +788,14 @@ export const demoWorkbooks = (): WorkbookSource[] => [
     bank: "Chuyển khoản BIDV",
   }),
 ];
+
+/** Sales files for six units plus a demo BCTC file per unit and a Kho file for HN and HCM. */
+export const demoWorkbooks = (): WorkbookSource[] => {
+  const sales = demoSalesWorkbooks();
+  return [
+    ...sales,
+    ...sales.map(demoBctcFor),
+    demoKhoFor("HN", 1),
+    demoKhoFor("HCM", 2),
+  ];
+};

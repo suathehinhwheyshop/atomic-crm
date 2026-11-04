@@ -24,7 +24,9 @@ export const parseDate = (value: unknown): string => {
 
 export type Table = {
   rows: string[][];
-  get: (row: string[], column: string) => string;
+  /** Value of the first column whose header matches one of the names (exact, then prefix). */
+  get: (row: string[], ...columns: string[]) => string;
+  has: (...columns: string[]) => boolean;
 };
 
 const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
@@ -34,12 +36,17 @@ const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
  * a column accessor. Columns are matched exactly first, then by prefix, so small
  * header differences between files ("CK BIDV (tự tính)" / "CK MB (tự tính)") work.
  */
-export const readTable = (values: string[][] | undefined): Table => {
+export const readTable = (
+  values: string[][] | undefined,
+  firstHeader = "Ngày",
+): Table => {
   const all = values ?? [];
-  const headerIndex = all.findIndex(
-    (row) => normalize(row[0] ?? "") === "Ngày",
-  );
-  if (headerIndex < 0) return { rows: [], get: () => "" };
+  // "Ngày" also matches "Ngày (tự động)" / "Ngày đặt" when that is the header asked for.
+  const headerIndex = all.findIndex((row) => {
+    const first = normalize(String(row[0] ?? ""));
+    return first === firstHeader || first.startsWith(`${firstHeader} `);
+  });
+  if (headerIndex < 0) return { rows: [], get: () => "", has: () => false };
 
   const headers = all[headerIndex].map((h) => normalize(String(h ?? "")));
   const cache = new Map<string, number>();
@@ -54,13 +61,21 @@ export const readTable = (values: string[][] | undefined): Table => {
     return cache.get(column)!;
   };
 
+  const firstIndex = (columns: string[]) => {
+    for (const column of columns) {
+      const index = indexOf(column);
+      if (index >= 0) return index;
+    }
+    return -1;
+  };
   return {
     rows: all
       .slice(headerIndex + 1)
       .filter((row) => row.some((cell) => String(cell ?? "").trim() !== "")),
-    get: (row, column) => {
-      const index = indexOf(column);
+    get: (row, ...columns) => {
+      const index = firstIndex(columns);
       return index < 0 ? "" : String(row[index] ?? "").trim();
     },
+    has: (...columns) => firstIndex(columns) >= 0,
   };
 };

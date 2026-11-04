@@ -98,7 +98,7 @@ export const StatementPage = () => {
                 {
                   label: "Giá vốn hàng bán",
                   values: byUnit(statement, (r) => r.costOfGoods),
-                  note: "theo Danh mục sản phẩm",
+                  note: "theo DT ngày của file BCTC",
                 },
                 {
                   label: "Lợi nhuận gộp",

@@ -25,6 +25,7 @@ import { SourceNote } from "../../components/SourceNote";
 import { UnitLabel, unitLabel } from "../../components/UnitLabel";
 import { useReportScope } from "../../components/useReportScope";
 import { useScopedData } from "../../components/useScopedData";
+import { scheduleBySupplier } from "../../model/accounting";
 import { debtPeriods } from "../../model/finance";
 import { branchUnits, debtSummary } from "../../model/reports";
 import { KIND_LABELS, type SupplierBalance } from "../../model/supplierLedger";
@@ -149,6 +150,15 @@ export const DebtsPage = () => {
     }),
     { opening: 0, purchased: 0, paid: 0, closing: 0, overdue: 0 },
   );
+  const schedule = useMemo(
+    () => scheduleBySupplier(scoped?.paymentSchedule ?? []),
+    [scoped],
+  );
+  const infoOf = (b: SupplierBalance) =>
+    scoped?.supplierInfo.find(
+      (i) =>
+        i.supplier === b.supplier && i.branch === b.branch && i.line === b.line,
+    );
   const balances = summary
     .flatMap((s) => s.balances)
     .sort((a, b) => b.balance - a.balance);
@@ -168,13 +178,10 @@ export const DebtsPage = () => {
   return (
     <div className="space-y-4">
       <SourceNote>
-        <strong>Đã trả</strong> lấy từ Bảng Chi phí, nhóm CÔNG NỢ NCC, dòng Kiểm
-        tra OK; tên nhà cung cấp là tên ghi ở cột Diễn giải (ví dụ "Trả tiền
-        hàng Ostrovit tháng 10" → Ostrovit), nên cần ghi tên NCC thống nhất.
-        <strong> Nợ đầu kỳ và nhập hàng</strong> lấy từ tab "Công nợ NCC" nếu có
-        (Ngày | Nhà cung cấp | Loại: Nợ đầu kỳ / Nhập hàng | Số phiếu | Diễn
-        giải | Số tiền | Hạn thanh toán); chưa có tab này thì bảng chỉ có cột đã
-        trả và số còn nợ hiện âm (= đã trả mà chưa ghi nhập hàng).
+        Lấy từ tab "Công nợ NCC" của file BCTC từng chi nhánh (mỗi dòng 1 lần
+        nhập hàng hoặc 1 lần trả; dòng "Số dư đầu kỳ" là nợ chuyển sang). Khi
+        chi nhánh chưa có file BCTC, phần đã trả tạm lấy từ Bảng Chi phí nhóm
+        CÔNG NỢ NCC. Lịch thanh toán tuần lấy từ tab "Lịch TT NCC".
       </SourceNote>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi
@@ -303,7 +310,16 @@ export const DebtsPage = () => {
                       line: b.line,
                     })}
                   </TableCell>
-                  <TableCell className="font-medium">{b.supplier}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{b.supplier}</div>
+                    {infoOf(b) ? (
+                      <div className="text-xs text-muted-foreground">
+                        {[infoOf(b)?.company, infoOf(b)?.bank]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                    ) : null}
+                  </TableCell>
                   <TableCell className="text-right">
                     {money(b.opening + b.purchased)}
                   </TableCell>
@@ -353,6 +369,61 @@ export const DebtsPage = () => {
           </Table>
         </CardContent>
       </Card>
+      {schedule.length ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Lịch thanh toán NCC (tab "Lịch TT NCC") · còn thiếu{" "}
+              {formatCompact(schedule.reduce((t, s) => t + s.remaining, 0))}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nhà cung cấp</TableHead>
+                  <TableHead className="text-right">Công nợ</TableHead>
+                  <TableHead className="text-right">Đã thanh toán</TableHead>
+                  <TableHead className="text-right">Còn thiếu</TableHead>
+                  <TableHead>
+                    Chi tiết (ngày · chi nhánh · phương thức)
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {schedule.map((s) => (
+                  <TableRow key={s.supplier}>
+                    <TableCell className="font-medium">{s.supplier}</TableCell>
+                    <TableCell className="text-right">
+                      {formatVnd(s.due)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatVnd(s.paid)}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        s.remaining
+                          ? "text-right font-semibold text-amber-600"
+                          : "text-right text-muted-foreground"
+                      }
+                    >
+                      {s.remaining ? formatVnd(s.remaining) : "0 ₫"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {s.rows
+                        .map(
+                          (r) =>
+                            `${formatDate(r.date)} · ${r.note || "–"} · ${formatVnd(r.due)}${r.remaining ? ` (thiếu ${formatVnd(r.remaining)})` : ""}${r.method ? ` · ${r.method}` : ""}`,
+                        )
+                        .join("; ")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
       <LedgerSheet balance={selected} onClose={() => setSelected(null)} />
     </div>
   );

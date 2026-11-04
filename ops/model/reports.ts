@@ -270,6 +270,35 @@ const countedRevenue = (data: Dataset) => [
     .map((o) => ({ ...o, amount: o.revenue })),
 ];
 
+/**
+ * Cost of goods for a unit and period. Accounting figures first: the BCTC "DT ngày"
+ * tab carries cost per channel per day (coverage = share of days with a cost).
+ * Without them, catalog cost prices on sold items.
+ */
+export const costOfGoodsFor = (
+  data: Dataset,
+  unit: BranchUnit,
+): { cost: number; coverage: number; source: "bctc" | "catalog" | "none" } => {
+  const days = data.dailyBooks.filter((d) => unitKey(d) === unit.key);
+  const withCost = days.filter(
+    (d) => d.costStore + d.costLocal + d.costPost > 0,
+  );
+  if (withCost.length) {
+    return {
+      cost: sum(withCost, (d) => d.costStore + d.costLocal + d.costPost),
+      coverage: withCost.length / days.length,
+      source: "bctc",
+    };
+  }
+  const fromCatalog = costOfGoods(
+    data.orders.filter((o) => unitKey(o) === unit.key),
+  );
+  return {
+    ...fromCatalog,
+    source: fromCatalog.coverage > 0 ? "catalog" : "none",
+  };
+};
+
 /** Cost of goods sold from catalog cost prices; coverage = share of sold units that have a cost. */
 export const costOfGoods = (
   orders: Order[],
@@ -392,7 +421,7 @@ export const financialStatement = (
     const latest = of(data.cashbook)
       .sort((a, b) => a.date.localeCompare(b.date))
       .at(-1);
-    const cogs = costOfGoods(of(data.orders));
+    const cogs = costOfGoodsFor(data, unit);
     return {
       unit,
       revenue,
