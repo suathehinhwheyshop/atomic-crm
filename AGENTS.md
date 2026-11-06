@@ -192,3 +192,13 @@ Import `test-data/contacts.csv` via the Contacts page → Import button.
 - Filter operators must be supported by the `supabaseAdapter` when using FakeRest
 - `.npmrc` sets `min-release-age`, so npm refuses a version published too recently: never override it to install a fresher one
 - Optional terse output for solo work: the `concise-dev` style ships at `.claude/styles/concise-dev.md`. To enable it just for yourself, copy it into `.claude/output-styles/` (or `~/.claude/output-styles/`) and run `/output-style concise-dev`, or set `"outputStyle": "concise-dev"` in your own `.claude/settings.local.json`. It is not enabled in the committed `settings.json`.
+
+## Cursor Cloud specific instructions
+
+The Cloud Agent image ships Node 22 at `/exec-daemon/node`, which is earlier on `PATH` than `/usr/local/bin`. This repo needs Node 24.21.0 (`.nvmrc`). The environment install puts that Node, `npm`, and `npx` on `/usr/local` and symlinks them from `/usr/local/cargo/bin`, which is the first `PATH` entry. Use those binaries. Supabase CLI 2.122.1 is installed globally; it is not an npm dependency of this repo. `npx supabase` without a version would otherwise resolve to whatever is current.
+
+Boot does not use systemd (`tini` is PID 1). The environment `start` script starts `dockerd`, then sets `iptables-legacy` `FORWARD` to `ACCEPT`. Without that, Docker's nft rules are not enough: the legacy table's default `DROP` policy blocks traffic on user-defined bridges, and `supabase start` fails while applying migrations because containers cannot reach Postgres. `start` then runs `supabase start` and leaves Vite in the foreground at http://localhost:5173/. Re-running `start` is safe when those ports are already up.
+
+There is no seeded login. The first visit shows the signup page; creating that account signs you in and is the only way to create the initial user. Email confirmation is off in local config.
+
+Vitest stays in watch mode unless `CI` is set. For a one-shot run: `CI=1 npm run test:unit:app -- --run` and `CI=1 npm run test:unit:functions -- --run`. `make typecheck`, `make lint`, and `make build` match CI and do not need extra flags.
